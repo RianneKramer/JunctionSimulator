@@ -1,5 +1,5 @@
 const config = {
-  mode: process.env.MODE || 'connected',
+  mode: process.env.MODE || 'standalone',
   
   controller: {
     baseUrl: process.env.CONTROLLER_URL || 'http://localhost:5001',
