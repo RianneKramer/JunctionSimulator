@@ -56,16 +56,16 @@ Press Ctrl+C to stop the simulator.
 
 Configure via environment variables or modify `config.js`:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MODE` | `standalone` | Operating mode: "standalone" or "connected" |
+| Variable | Default                 | Description |
+|----------|-------------------------|-------------|
+| `MODE` | `standalone`            | Operating mode: "standalone" or "connected" |
 | `CONTROLLER_URL` | `http://localhost:8080` | Base URL of external controller |
-| `CONTROLLER_TRIGGER_ENDPOINT` | `/data` | Trigger REST endpoint path |
-| `CONTROLLER_STATE_ENDPOINT` | `/api/data/state` | State REST endpoint path |
-| `CONTROLLER_TIMEOUT` | `5000` | Request timeout in milliseconds |
-| `CAR_SPAWN_INTERVAL` | `20000` | Car spawn interval in milliseconds |
-| `LIGHT_CHECK_INTERVAL` | `1000` | Traffic light check interval in milliseconds |
-| `TRAFFIC_LIGHT_ID` | `1.1` | Traffic light identifier |
+| `CONTROLLER_TRIGGER_ENDPOINT` | `/api/data`             | Trigger REST endpoint path |
+| `CONTROLLER_STATE_ENDPOINT` | `/api/data/state`       | State REST endpoint path |
+| `CONTROLLER_TIMEOUT` | `5000`                  | Request timeout in milliseconds |
+| `CAR_SPAWN_INTERVAL` | `20000`                 | Car spawn interval in milliseconds |
+| `LIGHT_CHECK_INTERVAL` | `1000`                  | Traffic light check interval in milliseconds |
+| `TRAFFIC_LIGHT_ID` | `1.1`                   | Traffic light identifier |
 
 ## REST API Contract
 
