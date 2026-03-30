@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Junction Simulator</title>
+  <style>
+    body { font-family: monospace; background: #222; color: #fff; margin: 20px; }
+    #road { position: relative; width: 800px; height: 120px; background: #333; margin: 20px 0; }
+    #stopline { position: absolute; left: 200px; top: 0; width: 4px; height: 100%; background: #fff; }
+    #light { position: absolute; left: 180px; top: -80px; width: 30px; background: #111; border-radius: 5px; padding: 5px; }
+    .bulb { width: 20px; height: 20px; border-radius: 50%; background: #333; margin: 3px auto; }
+    .bulb.red.on { background: #f00; }
+    .bulb.orange.on { background: #f90; }
+    .bulb.green.on { background: #0f0; }
+    .car { position: absolute; width: 60px; height: 30px; background: #66f; top: 45px; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    #info { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h2>Junction Simulator</h2>
+  <div id="road">
+    <div id="light">
+      <div class="bulb red" id="red"></div>
+      <div class="bulb orange" id="orange"></div>
+      <div class="bulb green" id="green"></div>
+    </div>
+    <div id="stopline"></div>
+    <div id="cars"></div>
+  </div>
+  <div id="info">Light: <span id="lightState">-</span></div>
+  <script>
+    const cars = {};
+    let lightState = 0;
+    const STOP_X = 130;
+    const SPEED = 2;
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/state');
+        const state = await res.json();
+        lightState = state.lightState;
+        
+        document.getElementById('red').className = 'bulb red' + (lightState === 0 ? ' on' : '');
+        document.getElementById('orange').className = 'bulb orange' + (lightState === 1 ? ' on' : '');
+        document.getElementById('green').className = 'bulb green' + (lightState === 2 ? ' on' : '');
+        document.getElementById('lightState').textContent = ['RED', 'ORANGE', 'GREEN'][lightState];
+
+        // Add new cars
+        for (const c of state.cars) {
+          if (!cars[c.id]) {
+            cars[c.id] = { id: c.id, x: -60, state: c.state };
+          }
+          cars[c.id].serverState = c.state;
+        }
+        // Mark cars that server removed as passed
+        for (const id in cars) {
+          if (!state.cars.find(c => c.id == id)) {
+            cars[id].serverState = 'passed';
+          }
+        }
+      } catch (e) {}
+    }
+
+    function animate() {
+      const carsDiv = document.getElementById('cars');
+      carsDiv.innerHTML = '';
+
+      for (const id in cars) {
+        const car = cars[id];
+        
+        // Move car
+        if (car.serverState === 'passed' || lightState === 2) {
+          // Green or passed: drive
+          car.x += SPEED;
+        } else if (car.x < STOP_X) {
+          // Approaching stop line
+          car.x += SPEED;
+        }
+        // else: stopped at red
+
+        // Remove if off screen
+        if (car.x > 850) {
+          delete cars[id];
+          continue;
+        }
+
+        // Render
+        const div = document.createElement('div');
+        div.className = 'car';
+        div.style.left = car.x + 'px';
+        div.textContent = car.id;
+        carsDiv.appendChild(div);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    setInterval(fetchState, 500);
+    fetchState();
+    animate();
+  </script>
+</body>
+</html>
