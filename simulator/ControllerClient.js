@@ -16,7 +16,8 @@ export default class ControllerClient {
   async post(trafficLights) {
     const payload = {
       currentTimestamp: Date.now(),
-      trafficLights: trafficLights
+      trainArrivalTimestamp: Date.now() + 10000,
+      trafficLights: trafficLights,
     };
 
     console.log('[Simulator] POST to controller:', JSON.stringify(payload));

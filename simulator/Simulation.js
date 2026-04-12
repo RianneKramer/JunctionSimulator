@@ -1,20 +1,20 @@
 import Car from './Car.js';
 import ControllerClient from './ControllerClient.js';
+import TrafficLight from "./TrafficLight.js";
 import config from './config.js';
 
 /**
  * main simulation loop.
  * - spawns cars
- * - POSTs state to controler every 3 seconds
+ * - inits traffic lights
+ * - POSTs state to controller every 3 seconds
  * - updates car states based on response
  */
 export default class Simulation {
   constructor() {
     this.client = new ControllerClient();
-    this.cars = [];
+    this.trafficLights = [];
     this.carCounter = 0;
-    this.lightState = 0; // 0=red, 1=orange, 2=green
-    this.lightId = config.trafficLightId;
     this.listeners = [];
   }
 
@@ -25,77 +25,93 @@ export default class Simulation {
 
   /** Notify listeners of state change */
   notify() {
-    const state = this.getState();
+    const state = this.trafficLights.map(light => light.getState());
     this.listeners.forEach(cb => cb(state));
   }
 
   /** Get current simulation state */
   getState() {
     return {
-      lightId: this.lightId,
-      lightState: this.lightState,
-      cars: this.cars.map(c => ({ id: c.id, state: c.state }))
+      trafficLights: this.trafficLights.map(light => light.getState())
     };
   }
 
   /** Spawn a new car */
   spawnCar() {
     const car = new Car(++this.carCounter);
-    this.cars.push(car);
-    console.log(`[Simulator] Car ${car.id} spawned`);
+
+    const lightId = config.carTrafficLights[
+        Math.floor(Math.random() * config.carTrafficLights.length)
+        ];
+
+    const light = this.trafficLights.find(l => l.lightId === lightId);
+
+    if (light) {
+      light.addCar(car);
+    }
+
+    console.log(`[Simulator] Car ${car.id} spawned at ${lightId}`);
     this.notify();
   }
 
   /** run one cycle: POST to controller, handle response */
   async tick() {
-    // build payload - only include cars with entity presence
-    const activeCars = this.cars.filter(c => c.isActive());
-    const hasEntity = activeCars.some(c => c.hasEntity());
+    const payload = this.trafficLights.map(light => light.buildPayload());
 
-    const trafficLights = [{
-      id: this.lightId,
-      hasEntity: hasEntity,
-      triggeredTimestamp: activeCars.length > 0 ? activeCars[0].triggeredTimestamp : Date.now()
-    }];
-
-    // POST to controller
-    const response = await this.client.post(trafficLights);
+    const response = await this.client.post(payload);
 
     if (response && response.trafficLights) {
-      const newState = response.trafficLights[this.lightId];
-      if (newState !== undefined) {
-        this.lightState = newState;
-        console.log(`[Simulator] Light ${this.lightId} = ${newState} (${['red', 'orange', 'green'][newState]})`);
+      for (const light of this.trafficLights) {
+        const newState = response.trafficLights[light.lightId];
+        if (newState !== undefined) {
+          console.log(
+              `[Simulator] Light ${light.lightId} = ${newState} (${['red','orange','green'][newState]})`
+          );
 
-        // If green, let waiting cars pass
-        if (newState === 2) {
-          for (const car of activeCars) {
-            if (car.state === 'waiting' || car.state === 'approaching') {
-              car.pass();
-              console.log(`[Simulator] Car ${car.id} passed`);
+          // If green, let waiting cars pass
+          if (newState === 2) {
+            for (const light of this.trafficLights) {
+              for (const car of light.getActiveCars()) {
+                if (car.canPass()) {
+                  car.pass();
+                  console.log(`[Simulator] Car ${car.id} passed`);
+                }
+              }
             }
-          }
-        } else {
-          // Red/orange - cars wait
-          for (const car of activeCars) {
-            if (car.state === 'approaching') {
-              car.wait();
-              console.log(`[Simulator] Car ${car.id} waiting`);
+
+          } else {
+            // Red/orange - cars wait
+            for (const light of this.trafficLights) {
+              for (const car of light.getActiveCars()) {
+                if (car.isApproaching()) {
+                  car.wait();
+                  console.log(`[Simulator] Car ${car.id} waiting`);
+                }
+              }
             }
+            light.updateState(newState);
           }
         }
       }
     }
-
-    // Clean up passed cars
-    this.cars = this.cars.filter(c => c.isActive());
     this.notify();
+  }
+
+  initCarTrafficLights() {
+    this.trafficLights = [];
+
+    for (const trafficLightId of config.carTrafficLights) {
+      this.trafficLights.push(new TrafficLight(trafficLightId));
+    }
   }
 
   /** Start the simulation loop */
   start() {
     console.log(`[Simulator] Starting - POST every ${config.postInterval}ms to ${config.controllerUrl}${config.endpoint}`);
-    
+
+    // Initialize Traffic Lights
+    this.initCarTrafficLights();
+
     // Spawn first car
     this.spawnCar();
 

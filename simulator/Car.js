@@ -1,32 +1,61 @@
 /**
- * car entity.
-*/
+ * car entity
+ */
+
 export default class Car {
   constructor(id) {
     this.id = id;
     this.triggeredTimestamp = Date.now();
-
-    // States: approaching, waiting, passed
     this.state = 'approaching';
   }
 
-  /** Car is at the light, waiting */
-  wait() {
-    this.state = 'waiting';
+  // --- STATE CHECKS ---
+  isApproaching() {
+    return this.state === 'approaching';
   }
 
-  /** Car passed through */
-  pass() {
-    this.state = 'passed';
+  isWaiting() {
+    return this.state === 'waiting';
   }
 
-  /** Check if car is still active (not passed) */
+  hasPassed() {
+    return this.state === 'passed';
+  }
+
   isActive() {
-    return this.state !== 'passed';
+    return !this.hasPassed();
   }
 
-  /** Check if car has entity presence at light */
   hasEntity() {
-    return this.state === 'approaching' || this.state === 'waiting';
+    return this.isApproaching() || this.isWaiting();
+  }
+
+  canPass() {
+    return this.isApproaching() || this.isWaiting();
+  }
+
+  // --- STATE TRANSITIONS ---
+  wait() {
+    if (this.isApproaching()) {
+      this.state = 'waiting';
+    }
+  }
+
+  pass() {
+    if (this.canPass()) {
+      this.state = 'passed';
+    }
+  }
+
+  // --- DATA ACCESS ---
+  getTriggeredTimestamp() {
+    return this.triggeredTimestamp;
+  }
+
+  getState() {
+    return {
+      id: this.id,
+      state: this.state
+    };
   }
 }
