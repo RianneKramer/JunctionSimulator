@@ -12,12 +12,15 @@ import java.util.concurrent.ConcurrentHashMap;
  * 2 = green
  */
 public class TrafficLightService {
-    
+    private String[] trafficLights = {"1.1", "2.1", "5.1", "6.1", "7.1", "8.1", "9.1", "10.1", "11.1", "12.1", "22", "26.1", "28.1", "31.1", "31.2", "32.1", "32.2", "35.1", "35.2", "36.1", "36.2", "37.1", "37.2", "38.1", "38.2", "86.1", "88.1", "42"};
+
     private final Map<String, LightState> lights = new ConcurrentHashMap<>();
     
     public TrafficLightService() {
-        // Initialize light 1.1 as red
-        lights.put("1.1", new LightState(0, false, 0));
+        // set all traffic lights to red (0)
+        for (int i = 0; i < trafficLights.length; i++) {
+            lights.put(trafficLights[i], new LightState(0, false, 0));
+        }
     }
     
     /**
@@ -26,10 +29,11 @@ public class TrafficLightService {
      * If hasEntity becomes false -> set light to red.
      */
     public synchronized void processUpdate(String lightId, boolean hasEntity, long triggeredTimestamp) {
-        if (!"1.1".equals(lightId)) {
+        if (java.util.Arrays.stream(trafficLights).noneMatch(lightId::equals)) {
             return;
         }
-        
+        System.out.println("Processing update " + lightId);
+
         LightState current = lights.get(lightId);
         int newState;
         
