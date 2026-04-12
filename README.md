@@ -37,7 +37,8 @@ Simulator POST naar controller elke 3 seconden:
   "currentTimestamp": 1711477761492,
   "trafficLights": [
     { "id": "1.1", "hasEntity": true, "triggeredTimestamp": 1711477761000 }
-  ]
+  ],
+  "trainArrivalTimestamp": 1711477761000
 }
 ```
 

@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Junction Path Editor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: monospace;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      height: 100vh;
+    }
+
+    .canvas-panel {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .canvas-wrap {
+      position: relative;
+    }
+
+    .canvas-wrap img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 640px;
+      height: 640px;
+      border-radius: 4px;
+    }
+
+    canvas {
+      position: relative;
+      cursor: crosshair;
+      border-radius: 4px;
+      border: 1px solid #333;
+    }
+
+    .panel {
+      width: 340px;
+      background: #16213e;
+      padding: 12px;
+      overflow-y: auto;
+      border-left: 2px solid #0f3460;
+      font-size: 12px;
+    }
+
+    .panel h2 {
+      color: #e94560;
+      font-size: 14px;
+      margin-bottom: 8px;
+    }
+
+    .panel h3 {
+      color: #888;
+      font-size: 11px;
+      margin: 10px 0 4px;
+      text-transform: uppercase;
+    }
+
+    .path-btn {
+      display: inline-block;
+      padding: 4px 8px;
+      margin: 2px;
+      border: 2px solid #444;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      font-family: monospace;
+      background: #222;
+      color: #aaa;
+    }
+
+    .path-btn.active {
+      border-color: #e94560;
+      color: #fff;
+      background: #333;
+    }
+
+    .path-btn .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 4px;
+      vertical-align: middle;
+    }
+
+    .info {
+      background: #0f3460;
+      padding: 8px;
+      border-radius: 4px;
+      margin: 8px 0;
+      font-size: 11px;
+      line-height: 1.6;
+    }
+
+    .wp-list {
+      max-height: 200px;
+      overflow-y: auto;
+      margin: 4px 0;
+    }
+
+    .wp-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-size: 11px;
+    }
+
+    .wp-row:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .wp-row .idx {
+      color: #666;
+      width: 18px;
+    }
+
+    .wp-row .coord {
+      color: #aaa;
+      flex: 1;
+    }
+
+    .wp-row .tag {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 2px;
+    }
+
+    .wp-row .tag.detect {
+      background: #f39c12;
+      color: #000;
+    }
+
+    .wp-row .tag.stop {
+      background: #e74c3c;
+      color: #fff;
+    }
+
+    .wp-row button {
+      padding: 1px 5px;
+      font-size: 10px;
+      background: #333;
+      border: 1px solid #555;
+      color: #aaa;
+      border-radius: 2px;
+      cursor: pointer;
+    }
+
+    .wp-row button:hover {
+      background: #555;
+      color: #fff;
+    }
+
+    .actions {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin: 6px 0;
+    }
+
+    .actions button {
+      padding: 4px 10px;
+      font-size: 11px;
+      border: 1px solid #555;
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: monospace;
+    }
+
+    .btn-primary {
+      background: #e94560;
+      border-color: #e94560;
+      color: #fff;
+    }
+
+    .btn-secondary {
+      background: #333;
+      color: #aaa;
+    }
+
+    .btn-warn {
+      background: #f39c12;
+      border-color: #f39c12;
+      color: #000;
+    }
+
+    textarea {
+      width: 100%;
+      height: 180px;
+      background: #0a0a1a;
+      color: #0f0;
+      border: 1px solid #333;
+      border-radius: 4px;
+      padding: 6px;
+      font-family: monospace;
+      font-size: 10px;
+      resize: vertical;
+    }
+
+    .help {
+      font-size: 10px;
+      color: #666;
+      line-height: 1.5;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="canvas-panel">
+    <div class="canvas-wrap">
+      <img src="intersection.png" alt="Junction" id="bg">
+      <canvas id="c" width="640" height="640"></canvas>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Path Editor</h2>
+
+    <div class="info" id="mode-info">Select a path to edit. Click canvas to add waypoints.</div>
+
+    <h3>Paths</h3>
+    <div id="path-buttons"></div>
+
+    <div id="edit-section" style="display:none">
+      <h3>Waypoints for <span id="edit-label"></span></h3>
+      <div class="actions">
+        <button class="btn-secondary" onclick="setDetect()">Set Detect</button>
+        <button class="btn-secondary" onclick="setStop()">Set Stop</button>
+        <button class="btn-warn" onclick="clearPath()">Clear Path</button>
+      </div>
+      <div class="wp-list" id="wp-list"></div>
+    </div>
+
+    <h3>Export / Import</h3>
+    <div class="actions">
+      <button class="btn-primary" onclick="exportPaths()">Export JSON</button>
+      <button class="btn-secondary" onclick="exportCode()">Export as Code</button>
+      <button class="btn-secondary" onclick="importJson()">Import JSON</button>
+    </div>
+    <textarea id="output"
+      placeholder="Exported path data will appear here. You can also paste JSON here and click Import."></textarea>
+
+    <div class="help">
+      <b>How to use:</b><br>
+      1. Click a path button to select it<br>
+      2. Click on the canvas to add waypoints (in order: spawn -> approach -> detect -> stop -> intersection ->
+      exit)<br>
+      3. Drag existing waypoints to reposition<br>
+      4. Select a waypoint, then click "Set Detect" or "Set Stop" to mark it<br>
+      5. Right-click a waypoint to delete it<br>
+      6. Export when done, paste into simulator HTML<br>
+      <br>
+      <b>Colors:</b> Blue=North, Red=East, Green=South, Orange=West<br>
+      Yellow circle = detect zone start, Red circle = stop line
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    // Current path data - initialized with existing paths
+    const pathData = {
+      "1.1": { points: [[640, 289], [545, 289], [480, 288], [443, 287], [395, 282], [372, 237], [371, 160], [371, 118], [371, 3]], stopIdx: 3, detectIdx: 2, color: '#e74c3c', desc: 'E->N' },
+      "2.1": { points: [[640, 314], [553, 316], [483, 315], [444, 315], [400, 312], [351, 301], [317, 273], [274, 257], [229, 245], [149, 245], [68, 246], [0, 246]], stopIdx: 3, detectIdx: 2, color: '#e74c3c', desc: 'E->W' },
+      "5.1": { points: [[388, 640], [386, 589], [386, 544], [386, 511], [387, 444], [388, 403], [381, 343], [370, 283], [371, 221], [370, 119], [370, 0]], stopIdx: 3, detectIdx: 2, color: '#2ecc71', desc: 'S->N' },
+      "6.1": { points: [[363, 640], [362, 589], [360, 543], [360, 511], [360, 452], [358, 384], [350, 326], [325, 283], [282, 256], [217, 247], [123, 245], [0, 246]], stopIdx: 3, detectIdx: 2, color: '#2ecc71', desc: 'S->W' },
+      "7.1": { points: [[0, 333], [85, 336], [148, 336], [180, 336], [257, 335], [314, 358], [324, 423], [324, 517], [326, 584], [328, 640]], stopIdx: 3, detectIdx: 2, color: '#f39c12', desc: 'W->S' },
+      "8.1": { points: [[0, 307], [73, 306], [143, 309], [179, 310], [277, 317], [365, 349], [459, 353], [522, 378], [637, 382]], stopIdx: 3, detectIdx: 2, color: '#f39c12', desc: 'W->E' },
+      "9.1": { points: [[0, 279], [70, 280], [142, 282], [181, 283], [241, 285], [307, 283], [351, 271], [371, 226], [373, 129], [371, 0]], stopIdx: 3, detectIdx: 2, color: '#f39c12', desc: 'W->N' },
+      "10.1": { points: [[253, 0], [253, 70], [254, 140], [253, 170], [255, 206], [244, 244], [209, 249], [125, 249], [0, 248]], stopIdx: 3, detectIdx: 2, color: '#3498db', desc: 'N->W' },
+      "11.1": { points: [[281, 0], [282, 70], [281, 140], [281, 168], [280, 250], [306, 325], [324, 396], [324, 524], [325, 640]], stopIdx: 3, detectIdx: 2, color: '#3498db', desc: 'N->S' },
+      "12.1": { points: [[310, 0], [309, 78], [310, 141], [310, 168], [313, 241], [318, 283], [350, 335], [395, 353], [520, 353], [638, 351]], stopIdx: 3, detectIdx: 2, color: '#3498db', desc: 'N->E' },
+    };
+
+    let activePath = null;
+    let selectedWp = -1; // selected waypoint index
+    let dragging = null; // { pathId, wpIdx }
+    let dragOffset = { x: 0, y: 0 };
+
+    // Build path buttons
+    function buildButtons() {
+      const container = document.getElementById('path-buttons');
+      container.innerHTML = '';
+      for (const [id, p] of Object.entries(pathData)) {
+        const btn = document.createElement('span');
+        btn.className = 'path-btn' + (activePath === id ? ' active' : '');
+        btn.innerHTML = `<span class="dot" style="background:${p.color}"></span>${id} ${p.desc}`;
+        btn.onclick = () => { activePath = id; selectedWp = -1; buildButtons(); updateEditPanel(); render(); };
+        container.appendChild(btn);
+      }
+    }
+
+    function updateEditPanel() {
+      const section = document.getElementById('edit-section');
+      if (!activePath) { section.style.display = 'none'; return; }
+      section.style.display = 'block';
+      document.getElementById('edit-label').textContent = activePath + ' (' + pathData[activePath].desc + ')';
+
+      const list = document.getElementById('wp-list');
+      const p = pathData[activePath];
+      let html = '';
+      for (let i = 0; i < p.points.length; i++) {
+        const pt = p.points[i];
+        let tags = '';
+        if (i === p.detectIdx) tags += '<span class="tag detect">DETECT</span> ';
+        if (i === p.stopIdx) tags += '<span class="tag stop">STOP</span> ';
+        const sel = i === selectedWp ? 'background:rgba(233,69,96,0.2);' : '';
+        html += `<div class="wp-row" style="${sel}" onclick="selectWp(${i})">
+      <span class="idx">${i}</span>
+      <span class="coord">[${pt[0]}, ${pt[1]}]</span>
+      ${tags}
+      <button onclick="event.stopPropagation();deleteWp(${i})" title="Delete">x</button>
+    </div>`;
+      }
+      list.innerHTML = html;
+
+      document.getElementById('mode-info').textContent =
+        `Editing ${activePath}. Click canvas to add waypoint. Drag to move. Right-click to delete.`;
+    }
+
+    function selectWp(idx) {
+      selectedWp = idx;
+      updateEditPanel();
+      render();
+    }
+
+    function setDetect() {
+      if (activePath && selectedWp >= 0) {
+        pathData[activePath].detectIdx = selectedWp;
+        updateEditPanel(); render();
+      }
+    }
+
+    function setStop() {
+      if (activePath && selectedWp >= 0) {
+        pathData[activePath].stopIdx = selectedWp;
+        updateEditPanel(); render();
+      }
+    }
+
+    function clearPath() {
+      if (activePath && confirm('Clear all waypoints for ' + activePath + '?')) {
+        pathData[activePath].points = [];
+        pathData[activePath].stopIdx = 0;
+        pathData[activePath].detectIdx = 0;
+        selectedWp = -1;
+        updateEditPanel(); render();
+      }
+    }
+
+    function deleteWp(idx) {
+      if (!activePath) return;
+      const p = pathData[activePath];
+      p.points.splice(idx, 1);
+      if (p.detectIdx >= idx && p.detectIdx > 0) p.detectIdx--;
+      if (p.stopIdx >= idx && p.stopIdx > 0) p.stopIdx--;
+      if (selectedWp >= p.points.length) selectedWp = p.points.length - 1;
+      updateEditPanel(); render();
+    }
+
+    // Canvas mouse handling
+    function getCanvasPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = 640 / rect.width, scaleY = 640 / rect.height;
+      return { x: Math.round((e.clientX - rect.left) * scaleX), y: Math.round((e.clientY - rect.top) * scaleY) };
+    }
+
+    function findWaypointAt(pos, radius) {
+      // Check active path first, then all paths
+      const pathsToCheck = activePath ? [activePath] : [];
+      for (const [id, p] of Object.entries(pathData)) {
+        if (id !== activePath) pathsToCheck.push(id);
+      }
+      for (const id of pathsToCheck) {
+        const p = pathData[id];
+        for (let i = 0; i < p.points.length; i++) {
+          const dx = p.points[i][0] - pos.x, dy = p.points[i][1] - pos.y;
+          if (dx * dx + dy * dy < radius * radius) {
+            return { pathId: id, wpIdx: i };
+          }
+        }
+      }
+      return null;
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+      if (e.button === 2) return; // right click handled in contextmenu
+      const pos = getCanvasPos(e);
+      const hit = findWaypointAt(pos, 10);
+
+      if (hit) {
+        dragging = hit;
+        // If clicking a waypoint on the active path, select it
+        if (hit.pathId === activePath) {
+          selectedWp = hit.wpIdx;
+          updateEditPanel();
+        }
+        dragOffset = { x: pathData[hit.pathId].points[hit.wpIdx][0] - pos.x, y: pathData[hit.pathId].points[hit.wpIdx][1] - pos.y };
+      } else if (activePath) {
+        // Add new waypoint at click position
+        const p = pathData[activePath];
+
+        // Insert after selected waypoint, or append
+        let insertIdx;
+        if (selectedWp >= 0 && selectedWp < p.points.length - 1) {
+          insertIdx = selectedWp + 1;
+        } else {
+          insertIdx = p.points.length;
+        }
+
+        p.points.splice(insertIdx, 0, [pos.x, pos.y]);
+
+        // Adjust indices
+        if (p.detectIdx >= insertIdx) p.detectIdx++;
+        if (p.stopIdx >= insertIdx) p.stopIdx++;
+
+        selectedWp = insertIdx;
+        updateEditPanel();
+      }
+      render();
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const pos = getCanvasPos(e);
+      const pt = pathData[dragging.pathId].points[dragging.wpIdx];
+      pt[0] = Math.max(0, Math.min(640, pos.x + dragOffset.x));
+      pt[1] = Math.max(0, Math.min(640, pos.y + dragOffset.y));
+      render();
+    });
+
+    canvas.addEventListener('mouseup', () => {
+      if (dragging) {
+        dragging = null;
+        updateEditPanel();
+      }
+    });
+
+    canvas.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      const pos = getCanvasPos(e);
+      const hit = findWaypointAt(pos, 10);
+      if (hit && hit.pathId === activePath) {
+        deleteWp(hit.wpIdx);
+      }
+    });
+
+    // Rendering
+    function render() {
+      ctx.clearRect(0, 0, 640, 640);
+
+      // Draw all paths
+      for (const [id, p] of Object.entries(pathData)) {
+        if (p.points.length < 2) continue;
+        const isActive = id === activePath;
+        const alpha = isActive ? 1.0 : 0.3;
+
+        // Draw path line
+        ctx.beginPath();
+        ctx.strokeStyle = p.color + (isActive ? 'cc' : '44');
+        ctx.lineWidth = isActive ? 3 : 1.5;
+        ctx.setLineDash(isActive ? [] : [4, 4]);
+        ctx.moveTo(p.points[0][0], p.points[0][1]);
+        for (let i = 1; i < p.points.length; i++) {
+          ctx.lineTo(p.points[i][0], p.points[i][1]);
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Draw detection zone segment
+        if (p.detectIdx < p.points.length && p.stopIdx < p.points.length && p.detectIdx !== p.stopIdx) {
+          ctx.beginPath();
+          ctx.strokeStyle = `rgba(255,200,0,${isActive ? 0.5 : 0.15})`;
+          ctx.lineWidth = isActive ? 12 : 6;
+          ctx.lineCap = 'round';
+          const start = Math.min(p.detectIdx, p.stopIdx);
+          const end = Math.max(p.detectIdx, p.stopIdx);
+          ctx.moveTo(p.points[start][0], p.points[start][1]);
+          for (let i = start + 1; i <= end; i++) {
+            ctx.lineTo(p.points[i][0], p.points[i][1]);
+          }
+          ctx.stroke();
+        }
+
+        // Draw waypoints
+        for (let i = 0; i < p.points.length; i++) {
+          const pt = p.points[i];
+          const r = isActive ? 6 : 3;
+
+          // Determine color
+          let fillColor = p.color;
+          if (i === p.detectIdx) fillColor = '#f1c40f';
+          if (i === p.stopIdx) fillColor = '#ff0000';
+
+          ctx.beginPath();
+          ctx.arc(pt[0], pt[1], r, 0, Math.PI * 2);
+          ctx.fillStyle = fillColor;
+          ctx.globalAlpha = alpha;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+
+          // Selected highlight
+          if (isActive && i === selectedWp) {
+            ctx.beginPath();
+            ctx.arc(pt[0], pt[1], r + 3, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+
+          // Index label for active path
+          if (isActive) {
+            ctx.fillStyle = '#fff';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(i.toString(), pt[0], pt[1] - r - 3);
+          }
+        }
+
+        // Path label at first visible waypoint
+        if (p.points.length > 0) {
+          const lp = p.points[Math.min(1, p.points.length - 1)];
+          ctx.fillStyle = isActive ? '#fff' : '#888';
+          ctx.font = (isActive ? 'bold ' : '') + '11px monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(id, lp[0] + 10, lp[1] + 4);
+        }
+      }
+    }
+
+    // Export
+    function exportPaths() {
+      const out = {};
+      for (const [id, p] of Object.entries(pathData)) {
+        out[id] = {
+          points: p.points,
+          stopIdx: p.stopIdx,
+          detectIdx: p.detectIdx,
+          color: p.color,
+          desc: p.desc
+        };
+      }
+      document.getElementById('output').value = JSON.stringify(out, null, 2);
+    }
+
+    function exportCode() {
+      let code = 'const RAW_PATHS = {\n';
+      for (const [id, p] of Object.entries(pathData)) {
+        const pts = JSON.stringify(p.points);
+        code += `  "${id}": { points: ${pts}, stopIdx: ${p.stopIdx}, detectIdx: ${p.detectIdx}, color: '${p.color}', desc: '${p.desc}' },\n`;
+      }
+      code += '};';
+      document.getElementById('output').value = code;
+    }
+
+    function importJson() {
+      const text = document.getElementById('output').value.trim();
+      try {
+        let data;
+        if (text.startsWith('const ')) {
+          // Try to parse as JS code
+          const jsonStr = text.replace(/^const RAW_PATHS = /, '').replace(/;$/, '');
+          data = JSON.parse(jsonStr);
+        } else {
+          data = JSON.parse(text);
+        }
+        for (const [id, p] of Object.entries(data)) {
+          if (pathData[id]) {
+            pathData[id].points = p.points;
+            pathData[id].stopIdx = p.stopIdx;
+            pathData[id].detectIdx = p.detectIdx;
+            if (p.color) pathData[id].color = p.color;
+            if (p.desc) pathData[id].desc = p.desc;
+          }
+        }
+        selectedWp = -1;
+        updateEditPanel();
+        render();
+        alert('Imported successfully!');
+      } catch (e) {
+        alert('Import failed: ' + e.message);
+      }
+    }
+
+    // Init
+    buildButtons();
+    render();
+  </script>
+</body>
+
+</html>

@@ -1,0 +1,6 @@
+{
+  "controllerUrl": "http://localhost:8080",
+  "endpoint": "/data",
+  "postInterval": 1000,
+  "spawnInterval": 5000
+}
