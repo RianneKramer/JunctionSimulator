@@ -11,6 +11,20 @@ import { RAW_PATHS, MANUAL_LIGHTS } from './paths.js';
 import { computeEntities } from './entityDetection.js';
 
 const entityTimestamps = {};
+const CONTROLLER_TIMEOUT_MS = 7000;
+
+let failureCount = 0;
+let nextAllowedAttemptAt = 0;
+
+function fetchWithTimeout(url, options = {}, timeoutMs = CONTROLLER_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  return fetch(url, {
+    ...options,
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timer));
+}
 
 /**
  * POST current entity states to the controller.
@@ -20,8 +34,10 @@ const entityTimestamps = {};
  * @returns {boolean} true if the POST succeeded
  */
 export async function postToController(paths, lightStates) {
-  const entities = computeEntities(paths);
   const now = Date.now();
+  if (now < nextAllowedAttemptAt) return false;
+
+  const entities = computeEntities(paths);
   const trafficLights = [];
 
   const allIds = [...Object.keys(RAW_PATHS), ...Object.keys(MANUAL_LIGHTS)];
@@ -39,11 +55,15 @@ export async function postToController(paths, lightStates) {
   }
 
   try {
-    const resp = await fetch('/api/proxy', {
+    const resp = await fetchWithTimeout('/api/proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ currentTimestamp: now, trafficLights, trainArrivalTimestamp: 1 }),
     });
+
+    if (!resp.ok) {
+      throw new Error(`Proxy returned HTTP ${resp.status}`);
+    }
 
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
@@ -54,8 +74,13 @@ export async function postToController(paths, lightStates) {
       }
     }
 
+    failureCount = 0;
+    nextAllowedAttemptAt = 0;
     return true;
   } catch (e) {
+    failureCount += 1;
+    const backoffMs = Math.min(1000 * 2 ** Math.min(failureCount, 5), 15000);
+    nextAllowedAttemptAt = Date.now() + backoffMs;
     return false;
   }
 }

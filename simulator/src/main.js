@@ -31,8 +31,18 @@ const ctx = canvas.getContext('2d');
 
 // Controller URL input
 const urlInput = document.getElementById('curl');
-document.querySelector('.cfg-row button').addEventListener('click', () => {
-  setControllerUrl(urlInput.value);
+document.querySelector('.cfg-row button').addEventListener('click', async () => {
+  try {
+    const ok = await setControllerUrl(urlInput.value);
+    if (!ok) {
+      alert('Could not save controller URL. Check simulator server connection.');
+      return;
+    }
+    const cfg = await loadConfig();
+    urlInput.value = cfg.controllerUrl + cfg.endpoint;
+  } catch (e) {
+    alert('Invalid controller URL. Use format: http://host:port/data');
+  }
 });
 
 // Make spawnCar available globally for the spawn buttons
