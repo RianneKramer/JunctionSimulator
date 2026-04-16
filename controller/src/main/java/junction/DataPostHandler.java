@@ -17,12 +17,10 @@ public class DataPostHandler implements HttpHandler {
 
     private final TrafficLightService service;
     private final Gson gson = new Gson();
-
-    public DataPostHandler(TrafficLightService service) {
+    public DataPostHandler(TrafficLightService service) {
         this.service = service;
     }
-
-    @Override
+    @Override
     public void handle(HttpExchange exchange) throws IOException {
         if ("OPTIONS".equalsIgnoreCase(exchange.getRequestMethod())) {
             setCorsHeaders(exchange);
@@ -34,15 +32,17 @@ public class DataPostHandler implements HttpHandler {
             sendError(exchange, 405, "Method not allowed");
             return;
         }
-
-        try {
+        try {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             JsonObject request = gson.fromJson(body, JsonObject.class);
-
-            long currentTimestamp = request.has("currentTimestamp")
+            long currentTimestamp = request.has("currentTimestamp")
                     ? request.get("currentTimestamp").getAsLong() : System.currentTimeMillis();
-
-            List<TrafficLightService.LightUpdate> updates = new ArrayList<>();
+            // register train arrival if provided (epoch ms)
+            if (request.has("trainArrivalTimestamp")) {
+                long trainTs = request.get("trainArrivalTimestamp").getAsLong();
+                service.registerTrainArrival(trainTs);
+            }
+            List<TrafficLightService.LightUpdate> updates = new ArrayList<>();
             if (request.has("trafficLights")) {
                 JsonArray arr = request.getAsJsonArray("trafficLights");
                 for (int i = 0; i < arr.size(); i++) {
@@ -53,17 +53,14 @@ public class DataPostHandler implements HttpHandler {
                     updates.add(new TrafficLightService.LightUpdate(id, hasEntity, ts));
                 }
             }
-
-            Map<String, Integer> newStates = service.processUpdate(updates, currentTimestamp);
-
-            JsonObject response = new JsonObject();
+            Map<String, Integer> newStates = service.processUpdate(updates, currentTimestamp);
+            JsonObject response = new JsonObject();
             JsonObject lightsObj = new JsonObject();
             for (Map.Entry<String, Integer> entry : newStates.entrySet()) {
                 lightsObj.addProperty(entry.getKey(), entry.getValue());
             }
             response.add("trafficLights", lightsObj);
-
-            String responseBody = gson.toJson(response);
+            String responseBody = gson.toJson(response);
             setCorsHeaders(exchange);
             exchange.getResponseHeaders().set("Content-Type", "application/json");
             byte[] bytes = responseBody.getBytes(StandardCharsets.UTF_8);
@@ -71,8 +68,7 @@ public class DataPostHandler implements HttpHandler {
             OutputStream os = exchange.getResponseBody();
             os.write(bytes);
             os.close();
-
-        } catch (Exception e) {
+        } catch (Exception e) {
             System.err.println("[Controller] Error: " + e.getMessage());
             sendError(exchange, 400, "Invalid request: " + e.getMessage());
         }

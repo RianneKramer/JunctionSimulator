@@ -20,7 +20,7 @@ public class TrafficLightService {
     private long orangeMs = 3000;
     private long minRedMs = 4000;
 
-    private final ConflictMatrix matrix;
+    private final ConflictHandler conflictHandler;
 
     private final Map<String, Integer> states = new ConcurrentHashMap<>();
     private final Map<String, Long> stateChangeTime = new ConcurrentHashMap<>();
@@ -29,8 +29,8 @@ public class TrafficLightService {
     private final Map<String, Long> triggeredTimestamps = new ConcurrentHashMap<>();
 
     public TrafficLightService() {
-        this.matrix = new ConflictMatrix();
-        for (String signal : matrix.getAllSignals()) {
+        this.conflictHandler = new ConflictHandler();
+        for (String signal : conflictHandler.getAllSignals()) {
             states.put(signal, 0);
             stateChangeTime.put(signal, 0L);
             greenSince.put(signal, 0L);
@@ -38,6 +38,9 @@ public class TrafficLightService {
             triggeredTimestamps.put(signal, 0L);
         }
     }
+
+    public void registerTrainArrival(long trainArrivalTimestamp) { conflictHandler.registerTrainArrival(trainArrivalTimestamp); }
+    public void clearTrainWindow() { conflictHandler.clearTrainWindow(); }
 
     public synchronized Map<String, Integer> processUpdate(List<LightUpdate> updates, long currentTimestamp) {
         for (LightUpdate update : updates) {
@@ -48,7 +51,7 @@ public class TrafficLightService {
         }
 
         // Phase 1: orange -> red
-        for (String signal : matrix.getAllSignals()) {
+        for (String signal : conflictHandler.getAllSignals()) {
             int state = states.getOrDefault(signal, 0);
             long changedAt = stateChangeTime.getOrDefault(signal, 0L);
             if (state == 1 && (currentTimestamp - changedAt) >= orangeMs) {
@@ -57,7 +60,7 @@ public class TrafficLightService {
         }
 
         // Phase 2: green -> orange (max green OR no entity + min green)
-        for (String signal : matrix.getAllSignals()) {
+        for (String signal : conflictHandler.getAllSignals()) {
             int state = states.getOrDefault(signal, 0);
             if (state != 2) continue;
 
@@ -78,22 +81,24 @@ public class TrafficLightService {
         // Phase 3: turn waiting lights green (longest-wait-first, greedy)
         Set<String> occupied = getOccupiedSignals();
 
-        List<String> waiting = new ArrayList<>();
-        for (String signal : matrix.getAllSignals()) {
+        List<ConflictHandler.WaitingRequest> waiting = new ArrayList<>();
+        for (String signal : conflictHandler.getAllSignals()) {
             boolean hasEntity = entityPresence.getOrDefault(signal, false);
             int state = states.getOrDefault(signal, 0);
             if (hasEntity && state == 0) {
                 long changedAt = stateChangeTime.getOrDefault(signal, 0L);
                 if ((currentTimestamp - changedAt) >= minRedMs) {
-                    waiting.add(signal);
+                    ConflictHandler.Priority pr = conflictHandler.priorityForSignal(signal);
+                    waiting.add(new ConflictHandler.WaitingRequest(signal, pr, triggeredTimestamps.getOrDefault(signal, 0L)));
                 }
             }
         }
 
-        waiting.sort(Comparator.comparingLong(s -> triggeredTimestamps.getOrDefault(s, 0L)));
+        waiting.sort(conflictHandler.waitingComparator());
 
-        for (String signal : waiting) {
-            if (matrix.canTurnGreen(signal, occupied)) {
+        for (ConflictHandler.WaitingRequest wr : waiting) {
+            String signal = wr.signalId;
+            if (conflictHandler.canTurnGreen(signal, occupied, currentTimestamp)) {
                 setState(signal, 2, currentTimestamp);
                 greenSince.put(signal, currentTimestamp);
                 occupied.add(signal);
