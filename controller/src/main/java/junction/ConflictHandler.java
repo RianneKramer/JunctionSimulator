@@ -24,7 +24,8 @@ public class ConflictHandler {
     private final AtomicLong blockEnd = new AtomicLong(0);
 
     private final Set<String> trainConflictingSignals;
-    public ConflictHandler() {
+
+    public ConflictHandler() {
         // Compute which signals conflict with the SP (railway) signal using the matrix API
         Set<String> set = new HashSet<>();
         for (String s : matrix.getAllSignals()) {
@@ -87,6 +88,7 @@ public class ConflictHandler {
      * - Unknown IDs -> UNKNOWN
      */
     private static final Set<String> BICYCLE_PEDESTRIAN_SIGNALS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
+        "22","26.1","28.1","86.1","88.1",
         "31.1","31.2","32.1","32.2",
         "35.1","35.2","36.1","36.2",
         "37.1","37.2","38.1","38.2"
