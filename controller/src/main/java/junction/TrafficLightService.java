@@ -1,82 +1,148 @@
 package junction;
 
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Manages traffic light state.
+ * Traffic light controller using conflict matrix.
  * 
- * enum:
- * 0 = red
- * 1 = orange
- * 2 = green
+ * States: 0 = red, 1 = orange, 2 = green
+ * 
+ * MAX_GREEN: once a light turns green, it can stay green for at most MAX_GREEN_MS.
+ * The timer is based on when the light TRANSITIONED to green, not on entity presence.
+ * Quick entity flickers (car leaving detection zone momentarily) do NOT reset the timer.
+ * Only a full red->green transition resets it.
  */
 public class TrafficLightService {
-    private String[] trafficLights = {"1.1", "2.1", "5.1", "6.1", "7.1", "8.1", "9.1", "10.1", "11.1", "12.1", "22", "26.1", "28.1", "31.1", "31.2", "32.1", "32.2", "35.1", "35.2", "36.1", "36.2", "37.1", "37.2", "38.1", "38.2", "86.1", "88.1", "42"};
 
-    private final Map<String, LightState> lights = new ConcurrentHashMap<>();
-    
+    private long minGreenMs = 6000;
+    private long maxGreenMs = 30000;
+    private long orangeMs = 3000;
+    private long minRedMs = 4000;
+
+    private final ConflictMatrix matrix;
+
+    private final Map<String, Integer> states = new ConcurrentHashMap<>();
+    private final Map<String, Long> stateChangeTime = new ConcurrentHashMap<>();
+    private final Map<String, Long> greenSince = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> entityPresence = new ConcurrentHashMap<>();
+    private final Map<String, Long> triggeredTimestamps = new ConcurrentHashMap<>();
+
     public TrafficLightService() {
-        // set all traffic lights to red (0)
-        for (int i = 0; i < trafficLights.length; i++) {
-            lights.put(trafficLights[i], new LightState(0, false, 0));
+        this.matrix = new ConflictMatrix();
+        for (String signal : matrix.getAllSignals()) {
+            states.put(signal, 0);
+            stateChangeTime.put(signal, 0L);
+            greenSince.put(signal, 0L);
+            entityPresence.put(signal, false);
+            triggeredTimestamps.put(signal, 0L);
         }
     }
-    
-    /**
-     * Process entity update from simulator.
-     * If hasEntity becomes true -> set light to green.
-     * If hasEntity becomes false -> set light to red.
-     */
-    public synchronized void processUpdate(String lightId, boolean hasEntity, long triggeredTimestamp) {
-        if (java.util.Arrays.stream(trafficLights).noneMatch(lightId::equals)) {
-            return;
-        }
-        System.out.println("Processing update " + lightId);
 
-        LightState current = lights.get(lightId);
-        int newState;
-        
-        if (hasEntity) {
-            // car present -> green
-            newState = 2;
-        } else {
-            // car gone -> red
-            newState = 0;
+    public synchronized Map<String, Integer> processUpdate(List<LightUpdate> updates, long currentTimestamp) {
+        for (LightUpdate update : updates) {
+            if (states.containsKey(update.id)) {
+                entityPresence.put(update.id, update.hasEntity);
+                triggeredTimestamps.put(update.id, update.triggeredTimestamp);
+            }
         }
-        
-        lights.put(lightId, new LightState(newState, hasEntity, triggeredTimestamp));
-        System.out.println("[Controller] Light " + lightId + ": hasEntity=" + hasEntity + " -> state=" + newState);
-    }
-    
-    /**
-     * Get current state of a light.
-     */
-    public int getState(String lightId) {
-        LightState state = lights.get(lightId);
-        return state != null ? state.stateCode : 0;
-    }
-    
-    /**
-     * Get all light states for response.
-     */
-    public Map<String, Integer> getAllStates() {
-        Map<String, Integer> result = new ConcurrentHashMap<>();
-        for (Map.Entry<String, LightState> entry : lights.entrySet()) {
-            result.put(entry.getKey(), entry.getValue().stateCode);
+
+        // Phase 1: orange -> red
+        for (String signal : matrix.getAllSignals()) {
+            int state = states.getOrDefault(signal, 0);
+            long changedAt = stateChangeTime.getOrDefault(signal, 0L);
+            if (state == 1 && (currentTimestamp - changedAt) >= orangeMs) {
+                setState(signal, 0, currentTimestamp);
+            }
         }
-        return result;
+
+        // Phase 2: green -> orange (max green OR no entity + min green)
+        for (String signal : matrix.getAllSignals()) {
+            int state = states.getOrDefault(signal, 0);
+            if (state != 2) continue;
+
+            long gSince = greenSince.getOrDefault(signal, 0L);
+            boolean hasEntity = entityPresence.getOrDefault(signal, false);
+
+            if ((currentTimestamp - gSince) >= maxGreenMs) {
+                System.out.println("[Controller] " + signal + " MAX GREEN reached, forcing orange");
+                setState(signal, 1, currentTimestamp);
+                continue;
+            }
+
+            if (!hasEntity && (currentTimestamp - gSince) >= minGreenMs) {
+                setState(signal, 1, currentTimestamp);
+            }
+        }
+
+        // Phase 3: turn waiting lights green (longest-wait-first, greedy)
+        Set<String> occupied = getOccupiedSignals();
+
+        List<String> waiting = new ArrayList<>();
+        for (String signal : matrix.getAllSignals()) {
+            boolean hasEntity = entityPresence.getOrDefault(signal, false);
+            int state = states.getOrDefault(signal, 0);
+            if (hasEntity && state == 0) {
+                long changedAt = stateChangeTime.getOrDefault(signal, 0L);
+                if ((currentTimestamp - changedAt) >= minRedMs) {
+                    waiting.add(signal);
+                }
+            }
+        }
+
+        waiting.sort(Comparator.comparingLong(s -> triggeredTimestamps.getOrDefault(s, 0L)));
+
+        for (String signal : waiting) {
+            if (matrix.canTurnGreen(signal, occupied)) {
+                setState(signal, 2, currentTimestamp);
+                greenSince.put(signal, currentTimestamp);
+                occupied.add(signal);
+            }
+        }
+
+        return getAllStates();
     }
-    
-    private static class LightState {
-        final int stateCode;
-        final boolean hasEntity;
-        final long lastTriggeredTimestamp;
-        
-        LightState(int stateCode, boolean hasEntity, long lastTriggeredTimestamp) {
-            this.stateCode = stateCode;
-            this.hasEntity = hasEntity;
-            this.lastTriggeredTimestamp = lastTriggeredTimestamp;
+
+    private void setState(String signal, int state, long timestamp) {
+        states.put(signal, state);
+        stateChangeTime.put(signal, timestamp);
+        String name = switch (state) { case 0 -> "RED"; case 1 -> "ORANGE"; case 2 -> "GREEN"; default -> "?"; };
+        System.out.println("[Controller] " + signal + " -> " + name);
+    }
+
+    private Set<String> getOccupiedSignals() {
+        Set<String> occ = new HashSet<>();
+        for (Map.Entry<String, Integer> e : states.entrySet()) {
+            if (e.getValue() == 2 || e.getValue() == 1) occ.add(e.getKey());
+        }
+        return occ;
+    }
+
+    public Map<String, Integer> getAllStates() { return new HashMap<>(states); }
+
+    public Map<String, Long> getTimingConfig() {
+        Map<String, Long> cfg = new LinkedHashMap<>();
+        cfg.put("minGreenMs", minGreenMs);
+        cfg.put("maxGreenMs", maxGreenMs);
+        cfg.put("orangeMs", orangeMs);
+        cfg.put("minRedMs", minRedMs);
+        return cfg;
+    }
+
+    public void setTimingConfig(long minGreen, long maxGreen, long orange, long minRed) {
+        this.minGreenMs = minGreen;
+        this.maxGreenMs = maxGreen;
+        this.orangeMs = orange;
+        this.minRedMs = minRed;
+        System.out.println("[Controller] Timing updated: minGreen=" + minGreen + " maxGreen=" + maxGreen + " orange=" + orange + " minRed=" + minRed);
+    }
+
+    public static class LightUpdate {
+        public final String id;
+        public final boolean hasEntity;
+        public final long triggeredTimestamp;
+        public LightUpdate(String id, boolean hasEntity, long triggeredTimestamp) {
+            this.id = id; this.hasEntity = hasEntity; this.triggeredTimestamp = triggeredTimestamp;
         }
     }
 }
