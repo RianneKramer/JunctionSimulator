@@ -1,6 +1,8 @@
 {
-  "controllerUrl": "http://localhost:8080",
+  "controllerUrl": "http://141.252.42.231:8080",
   "endpoint": "/data",
   "postInterval": 1000,
-  "spawnInterval": 5000
+  "spawnInterval": 5000,
+  "trainLeadMs": 8000,
+  "trainActiveMs": 12000
 }

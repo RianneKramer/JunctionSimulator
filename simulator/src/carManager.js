@@ -1,40 +1,70 @@
 /**
- * Car management: spawning, movement, queuing, and collision avoidance.
+ * Vehicle management: spawning, movement, queuing, and collision avoidance.
  *
- * Collision avoidance strategy:
- * 1. Cars queue behind other cars on the same path (simple gap check).
- * 2. In the intersection, cars yield to other-path cars that are ahead
- *    of them spatially. Deadlock is prevented by a deterministic tiebreaker:
- *    the car with the lower ID always has right of way.
- * 3. This naturally produces zipper merge behavior on converging exit lanes.
+ * Supports multiple frontend-only route variants under a single controller
+ * traffic light. The controller still only sees the parent signal ID.
  */
 
-import { posAt } from './pathMath.js';
+import { posAt, getSignalVariantKeys } from './pathMath.js';
 
 const CAR_LENGTH = 20;
 const CAR_WIDTH = 10;
+const BUS_LENGTH = 28;
+const BUS_WIDTH = 12;
 const MIN_GAP = 30;
 const COLLISION_RADIUS = 16;
 
 let cars = [];
 let idCounter = 0;
 
+function getVehicleProfile(signalId) {
+  if (signalId === '42') {
+    return {
+      vehicleType: 'bus',
+      length: BUS_LENGTH,
+      width: BUS_WIDTH,
+      speed: 1.1 + Math.random() * 0.25,
+    };
+  }
+
+  return {
+    vehicleType: 'car',
+    length: CAR_LENGTH,
+    width: CAR_WIDTH,
+    speed: 1.5 + Math.random() * 0.5,
+  };
+}
+
+function pickVariantKey(signalId, paths) {
+  const variants = getSignalVariantKeys(paths, signalId);
+  if (!variants.length) return null;
+  return variants[Math.floor(Math.random() * variants.length)];
+}
+
 /**
- * Spawn a car on a given path.
+ * Spawn a vehicle for a given controller signal.
  *
- * @param {string} pathId - traffic light ID (e.g. "1.1")
- * @param {Object} paths - map of computed paths
+ * @param {string} signalId - controller-facing signal ID (e.g. "5.1")
+ * @param {Object} paths - map of computed variant paths
  */
-export function spawnCar(pathId, paths) {
-  const path = paths[pathId];
-  if (!path) return;
+export function spawnCar(signalId, paths) {
+  const variantKey = pickVariantKey(signalId, paths);
+  if (!variantKey) return;
+
+  const path = paths[variantKey];
+  const profile = getVehicleProfile(signalId);
 
   cars.push({
     id: ++idCounter,
-    pathId,
+    signalId,
+    pathId: signalId,
+    variantKey,
     path,
+    vehicleType: profile.vehicleType,
+    length: profile.length,
+    width: profile.width,
     dist: 0,
-    speed: 1.5 + Math.random() * 0.5,
+    speed: profile.speed,
     x: path.points[0][0],
     y: path.points[0][1],
     angle: 0,
@@ -43,31 +73,32 @@ export function spawnCar(pathId, paths) {
 }
 
 /**
- * Spawn a car on a random path, if there is room at the spawn point.
- *
- * @param {string[]} pathIds - list of valid path IDs
- * @param {Object} paths - map of computed paths
+ * Spawn a vehicle on a random signal, if there is room at the spawn point.
  */
-export function spawnRandom(pathIds, paths) {
-  const id = pathIds[Math.floor(Math.random() * pathIds.length)];
-  const tooClose = cars.some(c => c.alive && c.pathId === id && c.dist < 40);
-  if (!tooClose) spawnCar(id, paths);
+export function spawnRandom(signalIds, paths) {
+  const signalId = signalIds[Math.floor(Math.random() * signalIds.length)];
+  const variants = getSignalVariantKeys(paths, signalId);
+  const tooClose = cars.some((c) => c.alive && variants.includes(c.variantKey) && c.dist < 40);
+  if (!tooClose) spawnCar(signalId, paths);
+}
+
+function isSignalGreen(signalId, lightStates) {
+  const ls = lightStates[signalId] || 0;
+  if (signalId === '42') {
+    return ls === 1 || ls === 2;
+  }
+  return ls === 2;
 }
 
 /**
- * Update a single car's position for one frame.
- *
- * @param {Object} car
- * @param {Object} lightStates - map of light ID -> state (0/1/2)
+ * Update a single vehicle for one frame.
  */
 export function updateCar(car, lightStates) {
   if (!car.alive) return;
 
-  const ls = lightStates[car.pathId] || 0;
   const beforeStop = car.dist < car.path.stopDist;
 
-  // Stop at red/orange before the stop line
-  if (beforeStop && ls !== 2) {
+  if (beforeStop && !isSignalGreen(car.signalId, lightStates)) {
     if (car.dist + car.speed >= car.path.stopDist) {
       car.dist = car.path.stopDist - 1;
       syncPosition(car);
@@ -75,20 +106,17 @@ export function updateCar(car, lightStates) {
     }
   }
 
-  // Queue behind car ahead on the same path
   const ahead = findCarAhead(car);
   if (ahead && (ahead.dist - car.dist) < MIN_GAP) {
     syncPosition(car);
     return;
   }
 
-  // Intersection collision avoidance (only after the stop line)
   if (car.dist >= car.path.stopDist && shouldYield(car)) {
     syncPosition(car);
     return;
   }
 
-  // All clear, move forward
   car.dist += car.speed;
   if (car.dist >= car.path.totalLength) {
     car.alive = false;
@@ -97,10 +125,6 @@ export function updateCar(car, lightStates) {
   syncPosition(car);
 }
 
-/**
- * Check if a car should yield to another car in the intersection.
- * Uses directional check + deterministic ID tiebreaker.
- */
 function shouldYield(car) {
   const nextPos = posAt(car.path, car.dist + car.speed);
   const fwd = posAt(car.path, car.dist + 10);
@@ -108,7 +132,7 @@ function shouldYield(car) {
   const myDirY = fwd.y - car.y;
 
   for (const other of cars) {
-    if (other === car || !other.alive || other.pathId === car.pathId) continue;
+    if (other === car || !other.alive || other.variantKey === car.variantKey) continue;
     if (other.dist <= other.path.stopDist - 5) continue;
 
     const dx = nextPos.x - other.x;
@@ -116,12 +140,10 @@ function shouldYield(car) {
 
     if (dx * dx + dy * dy >= COLLISION_RADIUS * COLLISION_RADIUS) continue;
 
-    // Check if other car is ahead of us
     const toDx = other.x - car.x;
     const toDy = other.y - car.y;
     const dot = toDx * myDirX + toDy * myDirY;
 
-    // Other car is ahead and close: yield only if we have lower priority
     if (dot > 0 && car.id > other.id) {
       return true;
     }
@@ -130,15 +152,12 @@ function shouldYield(car) {
   return false;
 }
 
-/**
- * Find the nearest car ahead on the same path.
- */
 function findCarAhead(car) {
   let best = null;
   let bestGap = Infinity;
 
   for (const c of cars) {
-    if (c === car || !c.alive || c.pathId !== car.pathId) continue;
+    if (c === car || !c.alive || c.variantKey !== car.variantKey) continue;
     const gap = c.dist - car.dist;
     if (gap > 0 && gap < bestGap) {
       best = c;
@@ -149,9 +168,6 @@ function findCarAhead(car) {
   return best;
 }
 
-/**
- * Sync a car's x/y/angle from its current distance along its path.
- */
 function syncPosition(car) {
   const p = posAt(car.path, car.dist);
   car.x = p.x;
@@ -159,27 +175,19 @@ function syncPosition(car) {
   car.angle = p.angle;
 }
 
-/**
- * Run one update tick for all cars.
- *
- * @param {Object} lightStates - current traffic light states
- */
 export function updateAll(lightStates) {
   for (const car of cars) {
     updateCar(car, lightStates);
   }
-  cars = cars.filter(c => c.alive);
+  cars = cars.filter((c) => c.alive);
 }
 
-/** Get the current list of living cars. */
 export function getCars() {
   return cars;
 }
 
-/** Get how many cars have been spawned total. */
 export function getTotalSpawned() {
   return idCounter;
 }
 
-/** Exported constants for rendering. */
-export { CAR_LENGTH, CAR_WIDTH };
+export { CAR_LENGTH, CAR_WIDTH, BUS_LENGTH, BUS_WIDTH };

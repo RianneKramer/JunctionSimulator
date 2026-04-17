@@ -10,6 +10,8 @@ const DEFAULT_CONFIG = {
   endpoint: '/data',
   postInterval: 3000,
   spawnInterval: 6000,
+  trainLeadMs: 8000,
+  trainActiveMs: 12000,
 };
 
 const CONFIG_RETRY_ATTEMPTS = 3;
@@ -18,7 +20,7 @@ const CONFIG_TIMEOUT_MS = 2500;
 const config = { ...DEFAULT_CONFIG };
 
 function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function normalizeControllerUrl(fullUrl) {
@@ -40,10 +42,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = CONFIG_TIMEOUT_MS
   }
 }
 
-/**
- * Load configuration from the server.
- * Retries up to 3 times, then falls back to defaults.
- */
 export async function loadConfig() {
   for (let attempt = 1; attempt <= CONFIG_RETRY_ATTEMPTS; attempt++) {
     try {
@@ -56,13 +54,12 @@ export async function loadConfig() {
       }
       config.endpoint = '/data';
 
-      const postInterval = Number(data.postInterval);
-      const spawnInterval = Number(data.spawnInterval);
-      if (Number.isFinite(postInterval) && postInterval > 0) {
-        config.postInterval = postInterval;
-      }
-      if (Number.isFinite(spawnInterval) && spawnInterval > 0) {
-        config.spawnInterval = spawnInterval;
+      const numericKeys = ['postInterval', 'spawnInterval', 'trainLeadMs', 'trainActiveMs'];
+      for (const key of numericKeys) {
+        const value = Number(data[key]);
+        if (Number.isFinite(value) && value > 0) {
+          config[key] = value;
+        }
       }
 
       return config;
@@ -78,12 +75,6 @@ export async function loadConfig() {
   return config;
 }
 
-/**
- * Update the controller URL and persist to server.
- *
- * @param {string} fullUrl - e.g. "http://10.0.0.5:8080/data"
- * @returns {Promise<boolean>} true if saved successfully
- */
 export async function setControllerUrl(fullUrl) {
   const baseUrl = normalizeControllerUrl(fullUrl.replace(/\/data\/?$/, ''));
   config.controllerUrl = baseUrl;

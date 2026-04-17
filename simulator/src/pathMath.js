@@ -1,13 +1,14 @@
 /**
  * Path math utilities.
  *
- * Converts raw waypoint arrays into distance-indexed paths
- * and provides interpolation along those paths.
+ * Converts waypoint arrays into distance-indexed paths and supports multiple
+ * frontend-only route variants under the same controller signal ID.
  */
+
+import { normalizePathDefinitions } from './paths.js';
 
 /**
  * Build a computed path from raw waypoint data.
- * Pre-calculates cumulative distances for fast lookup.
  *
  * @param {Object} raw - { points, stopIdx, detectIdx, color, desc }
  * @returns {Object} computed path with distance arrays
@@ -33,6 +34,52 @@ export function buildPath(raw) {
     stopIdx: raw.stopIdx,
     detectIdx: raw.detectIdx,
   };
+}
+
+/**
+ * Flatten normalized frontend route definitions into computed variant paths.
+ *
+ * @param {Object} rawPaths - signal keyed raw path definitions
+ * @returns {Object} map of variantKey -> computed path metadata
+ */
+export function buildAllPaths(rawPaths) {
+  const normalized = normalizePathDefinitions(rawPaths);
+  const paths = {};
+
+  for (const [signalId, signal] of Object.entries(normalized)) {
+    signal.variants.forEach((variant, index) => {
+      const variantKey = signal.variants.length === 1
+        ? signalId
+        : `${signalId}::${variant.id || index + 1}`;
+
+      paths[variantKey] = {
+        ...buildPath(variant),
+        signalId,
+        variantId: variant.id || `variant${index + 1}`,
+        variantKey,
+        signalDesc: signal.desc,
+        variantDesc: variant.desc || signal.desc,
+      };
+    });
+  }
+
+  return paths;
+}
+
+export function getSignalVariantKeys(paths, signalId) {
+  return Object.keys(paths).filter((key) => paths[key].signalId === signalId);
+}
+
+export function getRepresentativePaths(paths) {
+  const representative = {};
+
+  for (const path of Object.values(paths)) {
+    if (!representative[path.signalId]) {
+      representative[path.signalId] = path;
+    }
+  }
+
+  return representative;
 }
 
 /**
@@ -72,18 +119,4 @@ export function posAt(path, dist) {
     y: pts[n][1],
     angle: Math.atan2(pts[n][1] - pts[n - 1][1], pts[n][0] - pts[n - 1][0]),
   };
-}
-
-/**
- * Build all paths from raw definitions.
- *
- * @param {Object} rawPaths - map of id -> raw path data
- * @returns {Object} map of id -> computed path
- */
-export function buildAllPaths(rawPaths) {
-  const paths = {};
-  for (const [id, raw] of Object.entries(rawPaths)) {
-    paths[id] = buildPath(raw);
-  }
-  return paths;
 }

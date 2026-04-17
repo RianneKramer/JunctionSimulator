@@ -1,39 +1,107 @@
 /**
  * Canvas renderer for the intersection simulation.
- *
- * Draws detection zones, traffic light indicators at stop lines, and cars.
  */
 
-import { posAt } from './pathMath.js';
-import { getCars, CAR_LENGTH, CAR_WIDTH } from './carManager.js';
+import { posAt, getRepresentativePaths } from './pathMath.js';
+import { getCars } from './carManager.js';
 import { computeEntities } from './entityDetection.js';
+import { getTrainRenderState } from './trainManager.js';
+import { RAIL_SIGNAL_ID } from './paths.js';
 
 const CANVAS_SIZE = 640;
+const RAIL_Y = 438;
+const BARRIER_LEFT = { x: 346, y: 454 };
+const BARRIER_RIGHT = { x: 380, y: 454 };
 
-/**
- * Render one frame onto the canvas.
- *
- * @param {CanvasRenderingContext2D} ctx
- * @param {Object} paths - map of computed paths
- * @param {Object} lightStates - map of light ID -> state (0/1/2)
- */
 export function render(ctx, paths, lightStates) {
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
 
   const entities = computeEntities(paths);
+  const representativePaths = getRepresentativePaths(paths);
 
-  drawDetectionZones(ctx, paths, entities);
-  drawTrafficLights(ctx, paths, lightStates);
+  drawRailCrossing(ctx, lightStates[RAIL_SIGNAL_ID] || 0);
+  drawDetectionZones(ctx, representativePaths, entities);
+  drawTrafficLights(ctx, representativePaths, lightStates);
+  drawTrain(ctx);
   drawCars(ctx);
 }
 
-/**
- * Draw detection zones as highlighted path segments.
- */
-function drawDetectionZones(ctx, paths, entities) {
-  for (const [id, p] of Object.entries(paths)) {
+function drawRailCrossing(ctx, spState) {
+  ctx.save();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, RAIL_Y - 8);
+  ctx.lineTo(CANVAS_SIZE, RAIL_Y - 8);
+  ctx.moveTo(0, RAIL_Y + 8);
+  ctx.lineTo(CANVAS_SIZE, RAIL_Y + 8);
+  ctx.stroke();
+
+  drawBarrier(ctx, BARRIER_LEFT.x, BARRIER_LEFT.y, spState, -1);
+  drawBarrier(ctx, BARRIER_RIGHT.x, BARRIER_RIGHT.y, spState, 1);
+
+  const boxX = 363;
+  const boxY = 430;
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.roundRect(boxX - 10, boxY - 16, 20, 32, 4);
+  ctx.fill();
+
+  ctx.fillStyle = spState === 0 ? '#ff3333' : '#441111';
+  ctx.beginPath();
+  ctx.arc(boxX, boxY - 6, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = spState === 1 ? '#cccccc' : '#444';
+  ctx.beginPath();
+  ctx.arc(boxX, boxY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = spState === 2 ? '#33ff33' : '#113311';
+  ctx.beginPath();
+  ctx.arc(boxX, boxY + 6, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '8px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('SP', boxX, boxY - 22);
+
+  ctx.restore();
+}
+
+function drawBarrier(ctx, x, y, spState, side) {
+  const progress = spState === 2 ? 1 : spState === 1 ? 0.7 : 0;
+  const angle = side * (Math.PI / 2) * progress;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  ctx.strokeStyle = '#ddd';
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(side * 42, 0);
+  ctx.stroke();
+
+  ctx.strokeStyle = '#ff3b3b';
+  ctx.lineWidth = 2;
+  for (let i = 6; i < 42; i += 10) {
     ctx.beginPath();
-    ctx.strokeStyle = entities[id]
+    ctx.moveTo(side * i, -2);
+    ctx.lineTo(side * (i + 4), 2);
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawDetectionZones(ctx, paths, entities) {
+  for (const [signalId, p] of Object.entries(paths)) {
+    ctx.beginPath();
+    ctx.strokeStyle = entities[signalId]
       ? 'rgba(255,200,0,0.4)'
       : 'rgba(100,100,100,0.2)';
     ctx.lineWidth = 14;
@@ -51,50 +119,63 @@ function drawDetectionZones(ctx, paths, entities) {
   }
 }
 
-/**
- * Draw small traffic light indicators at each stop line.
- */
 function drawTrafficLights(ctx, paths, lightStates) {
-  for (const [id, p] of Object.entries(paths)) {
+  for (const [signalId, p] of Object.entries(paths)) {
     const stop = posAt(p, p.stopDist);
-    const ls = lightStates[id] || 0;
+    const ls = lightStates[signalId] || 0;
     const r = 5;
 
-    // Background
     ctx.fillStyle = '#111';
     ctx.beginPath();
     ctx.roundRect(stop.x - 7, stop.y - 10, 14, 20, 3);
     ctx.fill();
 
-    // Red bulb
     ctx.fillStyle = ls === 0 ? '#ff3333' : '#441111';
     ctx.beginPath();
     ctx.arc(stop.x, stop.y - 5, r - 1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Orange bulb
     ctx.fillStyle = ls === 1 ? '#ff9900' : '#332200';
     ctx.beginPath();
     ctx.arc(stop.x, stop.y, r - 1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Green bulb
     ctx.fillStyle = ls === 2 ? '#33ff33' : '#113311';
     ctx.beginPath();
     ctx.arc(stop.x, stop.y + 5, r - 1, 0, Math.PI * 2);
     ctx.fill();
 
-    // Label
     ctx.fillStyle = '#fff';
     ctx.font = '8px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(id, stop.x, stop.y - 14);
+    ctx.fillText(signalId, stop.x, stop.y - 14);
   }
 }
 
-/**
- * Draw all living cars as colored rectangles with headlights.
- */
+function drawTrain(ctx) {
+  const train = getTrainRenderState();
+  if (!train.visible) return;
+
+  ctx.save();
+  ctx.translate(train.x, train.y);
+  ctx.rotate(train.angle);
+
+  ctx.fillStyle = '#5dade2';
+  ctx.beginPath();
+  ctx.roundRect(-54, -12, 108, 24, 6);
+  ctx.fill();
+
+  ctx.fillStyle = '#d6eaf8';
+  for (let x = -42; x <= 28; x += 18) {
+    ctx.fillRect(x, -7, 10, 8);
+  }
+
+  ctx.fillStyle = '#1b4f72';
+  ctx.fillRect(-56, 10, 112, 4);
+
+  ctx.restore();
+}
+
 function drawCars(ctx) {
   for (const car of getCars()) {
     if (!car.alive) continue;
@@ -103,21 +184,18 @@ function drawCars(ctx) {
     ctx.translate(car.x, car.y);
     ctx.rotate(car.angle);
 
-    // Body
-    ctx.fillStyle = car.path.color;
+    ctx.fillStyle = car.vehicleType === 'bus' ? '#9b59b6' : car.path.color;
     ctx.beginPath();
-    ctx.roundRect(-CAR_LENGTH / 2, -CAR_WIDTH / 2, CAR_LENGTH, CAR_WIDTH, 3);
+    ctx.roundRect(-car.length / 2, -car.width / 2, car.length, car.width, 3);
     ctx.fill();
 
-    // Outline
     ctx.strokeStyle = 'rgba(0,0,0,0.4)';
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    // Headlights
     ctx.fillStyle = 'rgba(255,255,200,0.8)';
-    ctx.fillRect(CAR_LENGTH / 2 - 2, -CAR_WIDTH / 2 + 1, 2, 3);
-    ctx.fillRect(CAR_LENGTH / 2 - 2,  CAR_WIDTH / 2 - 4, 2, 3);
+    ctx.fillRect(car.length / 2 - 2, -car.width / 2 + 1, 2, 3);
+    ctx.fillRect(car.length / 2 - 2, car.width / 2 - 4, 2, 3);
 
     ctx.restore();
   }

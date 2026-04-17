@@ -15,12 +15,13 @@ app.use(express.urlencoded({ extended: true }));
 const CONTROLLER_ENDPOINT = "/data";
 const PROXY_TIMEOUT_MS = parseInt(process.env.PROXY_TIMEOUT_MS || "8000", 10);
 
-// Config state
 let config = {
   controllerUrl: process.env.CONTROLLER_URL || "http://localhost:8080",
   endpoint: CONTROLLER_ENDPOINT,
   postInterval: parseInt(process.env.POST_INTERVAL || "3000", 10),
   spawnInterval: parseInt(process.env.SPAWN_INTERVAL || "6000", 10),
+  trainLeadMs: parseInt(process.env.TRAIN_LEAD_MS || "8000", 10),
+  trainActiveMs: parseInt(process.env.TRAIN_ACTIVE_MS || "12000", 10),
 };
 
 function saveConfigFile() {
@@ -40,7 +41,6 @@ function normalizeControllerUrl(raw) {
   }
 }
 
-// Load config from file if it exists
 if (fs.existsSync(configFilePath)) {
   try {
     const savedConfig = JSON.parse(fs.readFileSync(configFilePath, "utf8"));
@@ -78,7 +78,6 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = PROXY_TIMEOUT_MS)
   }
 }
 
-// Proxy endpoint - forwards POST to controller, avoids browser CORS issues
 app.post("/api/proxy", async (req, res) => {
   const url = config.controllerUrl + CONTROLLER_ENDPOINT;
   try {
@@ -101,9 +100,7 @@ app.post("/api/proxy", async (req, res) => {
 
     if (!resp.ok) {
       res.status(resp.status).json({
-        error:
-          data?.error ||
-          `Controller returned HTTP ${resp.status}`,
+        error: data?.error || `Controller returned HTTP ${resp.status}`,
         details: data,
       });
       return;
@@ -141,14 +138,11 @@ app.post("/api/config", (req, res) => {
     config.controllerUrl = normalized;
   }
 
-  if (req.body.postInterval) {
-    const parsed = parseInt(req.body.postInterval, 10);
-    if (!Number.isNaN(parsed) && parsed > 0) config.postInterval = parsed;
-  }
-
-  if (req.body.spawnInterval) {
-    const parsed = parseInt(req.body.spawnInterval, 10);
-    if (!Number.isNaN(parsed) && parsed > 0) config.spawnInterval = parsed;
+  for (const key of ["postInterval", "spawnInterval", "trainLeadMs", "trainActiveMs"]) {
+    if (req.body[key]) {
+      const parsed = parseInt(req.body[key], 10);
+      if (!Number.isNaN(parsed) && parsed > 0) config[key] = parsed;
+    }
   }
 
   config.endpoint = CONTROLLER_ENDPOINT;
@@ -165,11 +159,11 @@ app.get("/config", (req, res) => {
       <label>Endpoint: <input value="${CONTROLLER_ENDPOINT}" size="20" disabled></label><br><br>
       <label>POST Interval (ms): <input name="postInterval" value="${config.postInterval}" type="number"></label><br><br>
       <label>Spawn Interval (ms): <input name="spawnInterval" value="${config.spawnInterval}" type="number"></label><br><br>
+      <label>Train lead time (ms): <input name="trainLeadMs" value="${config.trainLeadMs}" type="number"></label><br><br>
+      <label>Train active duration (ms): <input name="trainActiveMs" value="${config.trainActiveMs}" type="number"></label><br><br>
       <button type="submit">Save</button>
     </form>
-    <hr><h3>Local Addresses</h3><ul>${getLocalIps()
-      .map((ip) => `<li>http://${ip}:${port}</li>`)
-      .join("")}</ul>
+    <hr><h3>Local Addresses</h3><ul>${getLocalIps().map((ip) => `<li>http://${ip}:${port}</li>`).join("")}</ul>
   </body></html>`);
 });
 

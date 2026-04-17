@@ -3,12 +3,11 @@
  *
  * Posts traffic light entity states to the controller via the Node.js proxy
  * (avoids CORS issues when connecting to controllers on other machines).
- *
- * Receives back the current light states (0=red, 1=orange, 2=green).
  */
 
-import { RAW_PATHS, MANUAL_LIGHTS } from './paths.js';
+import { MANUAL_LIGHTS, getSignalIds } from './paths.js';
 import { computeEntities } from './entityDetection.js';
+import { getNextTrainArrivalTimestamp, tickTrainSchedule } from './trainManager.js';
 
 const entityTimestamps = {};
 const CONTROLLER_TIMEOUT_MS = 7000;
@@ -26,21 +25,15 @@ function fetchWithTimeout(url, options = {}, timeoutMs = CONTROLLER_TIMEOUT_MS) 
   }).finally(() => clearTimeout(timer));
 }
 
-/**
- * POST current entity states to the controller.
- *
- * @param {Object} paths - map of computed paths
- * @param {Object} lightStates - will be mutated with updated states from controller
- * @returns {boolean} true if the POST succeeded
- */
 export async function postToController(paths, lightStates) {
   const now = Date.now();
   if (now < nextAllowedAttemptAt) return false;
 
+  tickTrainSchedule(now);
+
   const entities = computeEntities(paths);
   const trafficLights = [];
-
-  const allIds = [...Object.keys(RAW_PATHS), ...Object.keys(MANUAL_LIGHTS)];
+  const allIds = [...new Set([...getSignalIds(), ...Object.keys(MANUAL_LIGHTS)])];
 
   for (const id of allIds) {
     const hasEntity = entities[id] || false;
@@ -58,7 +51,11 @@ export async function postToController(paths, lightStates) {
     const resp = await fetchWithTimeout('/api/proxy', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ currentTimestamp: now, trafficLights, trainArrivalTimestamp: 1 }),
+      body: JSON.stringify({
+        currentTimestamp: now,
+        trafficLights,
+        trainArrivalTimestamp: getNextTrainArrivalTimestamp(),
+      }),
     });
 
     if (!resp.ok) {
