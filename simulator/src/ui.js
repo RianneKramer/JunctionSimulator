@@ -121,7 +121,7 @@ export function updatePanel(lightStates, connected) {
     if (trainState.isCrossing) {
       trainStatus.textContent = `Train crossing | clears in ${Math.max(0, Math.ceil((trainState.currentActiveUntil - Date.now()) / 1000))}s`;
     } else if (trainState.nextArrivalAt) {
-      trainStatus.textContent = `Next train in ${Math.max(0, Math.ceil((trainState.nextArrivalAt - Date.now()) / 1000))}s`;
+      trainStatus.textContent = `Next train spawns in ${Math.max(0, Math.ceil((trainState.nextArrivalAt - Date.now()) / 1000))}s`;
     } else {
       trainStatus.textContent = 'No train scheduled';
     }

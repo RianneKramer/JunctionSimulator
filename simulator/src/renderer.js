@@ -6,12 +6,9 @@ import { posAt, getRepresentativePaths } from './pathMath.js';
 import { getCars } from './carManager.js';
 import { computeEntities } from './entityDetection.js';
 import { getTrainRenderState } from './trainManager.js';
-import { RAIL_SIGNAL_ID } from './paths.js';
+import { RAIL_LAYOUT, RAIL_SIGNAL_ID } from './paths.js';
 
 const CANVAS_SIZE = 640;
-const RAIL_Y = 438;
-const BARRIER_LEFT = { x: 346, y: 454 };
-const BARRIER_RIGHT = { x: 380, y: 454 };
 
 export function render(ctx, paths, lightStates) {
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -29,20 +26,19 @@ export function render(ctx, paths, lightStates) {
 function drawRailCrossing(ctx, spState) {
   ctx.save();
 
+  const [railStart, railEnd] = RAIL_LAYOUT.crossing.points;
   ctx.strokeStyle = 'rgba(255,255,255,0.25)';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, RAIL_Y - 8);
-  ctx.lineTo(CANVAS_SIZE, RAIL_Y - 8);
-  ctx.moveTo(0, RAIL_Y + 8);
-  ctx.lineTo(CANVAS_SIZE, RAIL_Y + 8);
+  ctx.moveTo(railStart[0], railStart[1] - 8);
+  ctx.lineTo(railEnd[0], railEnd[1] - 8);
+  ctx.moveTo(railStart[0], railStart[1] + 8);
+  ctx.lineTo(railEnd[0], railEnd[1] + 8);
   ctx.stroke();
 
-  drawBarrier(ctx, BARRIER_LEFT.x, BARRIER_LEFT.y, spState, -1);
-  drawBarrier(ctx, BARRIER_RIGHT.x, BARRIER_RIGHT.y, spState, 1);
-
-  const boxX = 363;
-  const boxY = 430;
+  const [signalPoint] = RAIL_LAYOUT.signal.points;
+  const boxX = signalPoint[0];
+  const boxY = signalPoint[1];
   ctx.fillStyle = '#111';
   ctx.beginPath();
   ctx.roundRect(boxX - 10, boxY - 16, 20, 32, 4);
@@ -67,33 +63,6 @@ function drawRailCrossing(ctx, spState) {
   ctx.font = '8px monospace';
   ctx.textAlign = 'center';
   ctx.fillText('SP', boxX, boxY - 22);
-
-  ctx.restore();
-}
-
-function drawBarrier(ctx, x, y, spState, side) {
-  const progress = spState === 2 ? 1 : spState === 1 ? 0.7 : 0;
-  const angle = side * (Math.PI / 2) * progress;
-
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-
-  ctx.strokeStyle = '#ddd';
-  ctx.lineWidth = 4;
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(side * 42, 0);
-  ctx.stroke();
-
-  ctx.strokeStyle = '#ff3b3b';
-  ctx.lineWidth = 2;
-  for (let i = 6; i < 42; i += 10) {
-    ctx.beginPath();
-    ctx.moveTo(side * i, -2);
-    ctx.lineTo(side * (i + 4), 2);
-    ctx.stroke();
-  }
 
   ctx.restore();
 }
@@ -156,24 +125,35 @@ function drawTrain(ctx) {
   const train = getTrainRenderState();
   if (!train.visible) return;
 
-  ctx.save();
-  ctx.translate(train.x, train.y);
-  ctx.rotate(train.angle);
+  const cabinLength = 108;
+  const forwardX = Math.cos(train.angle);
+  const forwardY = Math.sin(train.angle);
 
-  ctx.fillStyle = '#5dade2';
-  ctx.beginPath();
-  ctx.roundRect(-54, -12, 108, 24, 6);
-  ctx.fill();
+  for (let i = 0; i < train.cabinCount; i++) {
+    const offset = cabinLength / 2 + i * train.cabinSpacing;
+    const cabinX = train.x - forwardX * offset;
+    const cabinY = train.y - forwardY * offset;
 
-  ctx.fillStyle = '#d6eaf8';
-  for (let x = -42; x <= 28; x += 18) {
-    ctx.fillRect(x, -7, 10, 8);
+    ctx.save();
+    ctx.translate(cabinX, cabinY);
+    ctx.rotate(train.angle);
+    ctx.scale(1, -1);
+
+    ctx.fillStyle = '#5dade2';
+    ctx.beginPath();
+    ctx.roundRect(-cabinLength / 2, -12, cabinLength, 24, 6);
+    ctx.fill();
+
+    ctx.fillStyle = '#d6eaf8';
+    for (let x = -42; x <= 28; x += 18) {
+      ctx.fillRect(x, -7, 10, 8);
+    }
+
+    ctx.fillStyle = '#1b4f72';
+    ctx.fillRect(-56, 10, 112, 4);
+
+    ctx.restore();
   }
-
-  ctx.fillStyle = '#1b4f72';
-  ctx.fillRect(-56, 10, 112, 4);
-
-  ctx.restore();
 }
 
 function drawCars(ctx) {

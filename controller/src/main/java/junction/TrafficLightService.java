@@ -16,8 +16,8 @@ public class TrafficLightService {
     private long minRedMs = 4000;
 
     private static final String TRAIN_SIGNAL_ID = "SP";
-    private long trainLeadMs = 8000;
-    private long trainActiveMs = 12000;
+    private long trainLeadMs = 5000;
+    private long trainActiveMs = 6000;
 
     private final ConflictMatrix matrix;
 
@@ -26,7 +26,6 @@ public class TrafficLightService {
     private final Map<String, Long> greenSince = new ConcurrentHashMap<>();
     private final Map<String, Boolean> entityPresence = new ConcurrentHashMap<>();
     private final Map<String, Long> triggeredTimestamps = new ConcurrentHashMap<>();
-    private long spHoldUntil = 0L;
 
     public TrafficLightService() {
         this.matrix = new ConflictMatrix();
@@ -45,10 +44,10 @@ public class TrafficLightService {
 
     public synchronized Map<String, Integer> processUpdate(List<LightUpdate> updates, long currentTimestamp, long trainArrivalTimestamp) {
         applyLightUpdates(updates);
-        applyTrainDemand(currentTimestamp, trainArrivalTimestamp);
+        boolean trainActive = applyTrainState(currentTimestamp, trainArrivalTimestamp);
         transitionOrangeToRed(currentTimestamp);
-        transitionGreenToOrange(currentTimestamp);
-        activateWaitingSignals(currentTimestamp);
+        transitionGreenToOrange(currentTimestamp, trainActive);
+        activateWaitingSignals(currentTimestamp, trainActive);
         return getAllStates();
     }
 
@@ -61,24 +60,41 @@ public class TrafficLightService {
         }
     }
 
-    private void applyTrainDemand(long currentTimestamp, long trainArrivalTimestamp) {
+    private boolean applyTrainState(long currentTimestamp, long trainArrivalTimestamp) {
         if (trainArrivalTimestamp <= 0) {
             entityPresence.put(TRAIN_SIGNAL_ID, false);
-            return;
+            setState(TRAIN_SIGNAL_ID, 0, currentTimestamp);
+            return false;
         }
 
-        long activeFrom = trainArrivalTimestamp - trainLeadMs;
-        long activeUntil = trainArrivalTimestamp + trainActiveMs;
-        boolean trainDemand = currentTimestamp >= activeFrom && currentTimestamp <= activeUntil;
+        long preemptAt = trainArrivalTimestamp - trainLeadMs;
+        long releaseAt = trainArrivalTimestamp + trainActiveMs;
+        boolean active = currentTimestamp >= preemptAt && currentTimestamp <= releaseAt;
 
-        entityPresence.put(TRAIN_SIGNAL_ID, trainDemand);
-        if (trainDemand) {
-            triggeredTimestamps.put(TRAIN_SIGNAL_ID, activeFrom);
+        entityPresence.put(TRAIN_SIGNAL_ID, active);
+        triggeredTimestamps.put(TRAIN_SIGNAL_ID, preemptAt);
+
+        if (!active) {
+            setState(TRAIN_SIGNAL_ID, 0, currentTimestamp);
+            return false;
         }
+
+        for (String signal : matrix.getAllSignals()) {
+            if (TRAIN_SIGNAL_ID.equals(signal)) continue;
+            if (!matrix.hasConflict(TRAIN_SIGNAL_ID, signal)) continue;
+            if (states.getOrDefault(signal, 0) != 0) {
+                setState(signal, 0, currentTimestamp);
+            }
+        }
+
+        setState(TRAIN_SIGNAL_ID, 2, currentTimestamp);
+        greenSince.put(TRAIN_SIGNAL_ID, currentTimestamp);
+        return true;
     }
 
     private void transitionOrangeToRed(long currentTimestamp) {
         for (String signal : matrix.getAllSignals()) {
+            if (TRAIN_SIGNAL_ID.equals(signal)) continue;
             int state = states.getOrDefault(signal, 0);
             long changedAt = stateChangeTime.getOrDefault(signal, 0L);
             if (state == 1 && (currentTimestamp - changedAt) >= orangeMs) {
@@ -87,17 +103,19 @@ public class TrafficLightService {
         }
     }
 
-    private void transitionGreenToOrange(long currentTimestamp) {
+    private void transitionGreenToOrange(long currentTimestamp, boolean trainActive) {
         for (String signal : matrix.getAllSignals()) {
+            if (TRAIN_SIGNAL_ID.equals(signal)) continue;
             int state = states.getOrDefault(signal, 0);
             if (state != 2) continue;
 
-            long gSince = greenSince.getOrDefault(signal, 0L);
-            boolean hasEntity = entityPresence.getOrDefault(signal, false);
-
-            if (TRAIN_SIGNAL_ID.equals(signal) && currentTimestamp < spHoldUntil) {
+            if (trainActive && matrix.hasConflict(TRAIN_SIGNAL_ID, signal)) {
+                setState(signal, 0, currentTimestamp);
                 continue;
             }
+
+            long gSince = greenSince.getOrDefault(signal, 0L);
+            boolean hasEntity = entityPresence.getOrDefault(signal, false);
 
             if ((currentTimestamp - gSince) >= maxGreenMs) {
                 System.out.println("[Controller] " + signal + " MAX GREEN reached, forcing orange");
@@ -111,14 +129,20 @@ public class TrafficLightService {
         }
     }
 
-    private void activateWaitingSignals(long currentTimestamp) {
+    private void activateWaitingSignals(long currentTimestamp, boolean trainActive) {
         Set<String> occupied = getOccupiedSignals();
         List<String> waiting = new ArrayList<>();
 
         for (String signal : matrix.getAllSignals()) {
+            if (TRAIN_SIGNAL_ID.equals(signal)) continue;
+
             boolean hasEntity = entityPresence.getOrDefault(signal, false);
             int state = states.getOrDefault(signal, 0);
             if (hasEntity && state == 0) {
+                if (trainActive && matrix.hasConflict(TRAIN_SIGNAL_ID, signal)) {
+                    continue;
+                }
+
                 long changedAt = stateChangeTime.getOrDefault(signal, 0L);
                 if ((currentTimestamp - changedAt) >= minRedMs) {
                     waiting.add(signal);
@@ -126,8 +150,7 @@ public class TrafficLightService {
             }
         }
 
-        waiting.sort(Comparator.comparingLong((String s) -> triggeredTimestamps.getOrDefault(s, 0L))
-                .thenComparing(s -> TRAIN_SIGNAL_ID.equals(s) ? "0" : s));
+        waiting.sort(Comparator.comparingLong(s -> triggeredTimestamps.getOrDefault(s, 0L)));
 
         for (String signal : waiting) {
             if (matrix.canTurnGreen(signal, occupied)) {
@@ -139,15 +162,11 @@ public class TrafficLightService {
     }
 
     private void setState(String signal, int state, long timestamp) {
+        if (states.getOrDefault(signal, 0) == state) {
+            return;
+        }
         states.put(signal, state);
         stateChangeTime.put(signal, timestamp);
-        if (TRAIN_SIGNAL_ID.equals(signal)) {
-            if (state == 2) {
-                spHoldUntil = Math.max(spHoldUntil, timestamp + trainActiveMs);
-            } else if (state == 0) {
-                spHoldUntil = 0L;
-            }
-        }
         String name = switch (state) {
             case 0 -> "RED";
             case 1 -> "ORANGE";

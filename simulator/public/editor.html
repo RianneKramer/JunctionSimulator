@@ -5,15 +5,15 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: monospace; background: #1a1a2e; color: #eee; display: flex; height: 100vh; }
-    .canvas-panel { flex: 1; display: flex; align-items: center; justify-content: center; position: relative; }
+    .canvas-panel { flex: 1; display: flex; align-items: center; justify-content: center; }
     .canvas-wrap { position: relative; }
     .canvas-wrap img { position: absolute; top: 0; left: 0; width: 640px; height: 640px; border-radius: 4px; }
     canvas { position: relative; cursor: crosshair; border-radius: 4px; border: 1px solid #333; }
-    .panel { width: 380px; background: #16213e; padding: 12px; overflow-y: auto; border-left: 2px solid #0f3460; font-size: 12px; }
+    .panel { width: 390px; background: #16213e; padding: 12px; overflow-y: auto; border-left: 2px solid #0f3460; font-size: 12px; }
     .panel h2 { color: #e94560; font-size: 14px; margin-bottom: 8px; }
     .panel h3 { color: #888; font-size: 11px; margin: 10px 0 4px; text-transform: uppercase; }
-    .path-btn, .variant-btn { display: inline-block; padding: 4px 8px; margin: 2px; border: 2px solid #444; border-radius: 4px; cursor: pointer; font-size: 11px; background: #222; color: #aaa; }
-    .path-btn.active, .variant-btn.active { border-color: #e94560; color: #fff; background: #333; }
+    .path-btn, .variant-btn, .special-btn { display: inline-block; padding: 4px 8px; margin: 2px; border: 2px solid #444; border-radius: 4px; cursor: pointer; font-size: 11px; background: #222; color: #aaa; }
+    .path-btn.active, .variant-btn.active, .special-btn.active { border-color: #e94560; color: #fff; background: #333; }
     .path-btn .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
     .info { background: #0f3460; padding: 8px; border-radius: 4px; margin: 8px 0; font-size: 11px; line-height: 1.5; }
     .actions { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0; }
@@ -23,28 +23,28 @@
     .btn-warn { background: #f39c12; border-color: #f39c12; color: #000; }
     .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
     .row input { flex: 1; background: #0a0a1a; color: #fff; border: 1px solid #333; border-radius: 3px; padding: 4px 6px; font-family: monospace; font-size: 11px; }
-    .wp-list { max-height: 220px; overflow-y: auto; margin: 4px 0; }
+    .wp-list { max-height: 240px; overflow-y: auto; margin: 4px 0; }
     .wp-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 3px; font-size: 11px; }
-    .wp-row:hover { background: rgba(255, 255, 255, 0.05); }
+    .wp-row:hover { background: rgba(255,255,255,0.05); }
     .wp-row .idx { color: #666; width: 18px; }
     .wp-row .coord { color: #aaa; flex: 1; }
     .wp-row .tag { font-size: 9px; padding: 1px 4px; border-radius: 2px; }
     .wp-row .tag.detect { background: #f39c12; color: #000; }
     .wp-row .tag.stop { background: #e74c3c; color: #fff; }
-    textarea { width: 100%; height: 200px; background: #0a0a1a; color: #0f0; border: 1px solid #333; border-radius: 4px; padding: 6px; font-family: monospace; font-size: 10px; resize: vertical; }
+    textarea { width: 100%; height: 220px; background: #0a0a1a; color: #0f0; border: 1px solid #333; border-radius: 4px; padding: 6px; font-family: monospace; font-size: 10px; resize: vertical; }
     .help { font-size: 10px; color: #666; line-height: 1.5; margin-top: 8px; }
   </style>
 </head>
 <body>
   <div class="canvas-panel">
     <div class="canvas-wrap">
-      <img src="intersection.png" alt="Junction" id="bg">
+      <img src="intersection.png" alt="Junction">
       <canvas id="c" width="640" height="640"></canvas>
     </div>
   </div>
   <div class="panel">
     <h2>Path Editor</h2>
-    <div class="info" id="mode-info">Select a traffic light and a variant to edit.</div>
+    <div class="info" id="mode-info">Select a traffic light or SP layout element to edit.</div>
 
     <h3>Traffic Lights</h3>
     <div class="actions">
@@ -78,42 +78,54 @@
       <div class="wp-list" id="wp-list"></div>
     </div>
 
+    <div id="sp-section">
+      <h3>SP layout</h3>
+      <div id="special-buttons"></div>
+      <div class="wp-list" id="special-list"></div>
+    </div>
+
     <h3>Export / Import</h3>
     <div class="actions">
       <button class="btn-primary" id="export-json-btn">Export JSON</button>
       <button class="btn-secondary" id="export-code-btn">Export as Code</button>
       <button class="btn-secondary" id="import-json-btn">Import JSON</button>
     </div>
-    <textarea id="output" placeholder="Exported path data will appear here. You can also paste JSON here and click Import."></textarea>
+    <textarea id="output" placeholder="Exported data will appear here."></textarea>
 
     <div class="help">
       <b>How to use:</b><br>
-      1. Add/select a traffic light<br>
-      2. Add/select a variant under that light<br>
-      3. Click canvas to add waypoints, drag to move, right-click to delete<br>
-      4. Set detect and stop indexes per variant<br>
-      5. Export the resulting `RAW_PATHS` structure<br><br>
-      This editor supports frontend-only multi-ending paths per controller signal.
+      Select a normal light to edit car/bus paths.<br>
+      Select an SP layout item to drag the rail crossing, the SP signal position, or the train path.<br>
+      Export gives both <code>RAW_PATHS</code> and <code>RAIL_LAYOUT</code>.
     </div>
   </div>
 
   <script type="module">
-    import { RAW_PATHS, normalizePathDefinitions } from '/src/paths.js';
+    import { RAW_PATHS, RAIL_LAYOUT, normalizePathDefinitions } from '/src/paths.js';
 
     const canvas = document.getElementById('c');
     const ctx = canvas.getContext('2d');
-
     const pathData = structuredClone(normalizePathDefinitions(RAW_PATHS));
+    const railLayout = structuredClone(RAIL_LAYOUT);
+
+    const SPECIAL_ITEMS = {
+      crossing: { label: 'Crossing line', color: '#cccccc' },
+      signal: { label: 'SP signal', color: '#ffffff' },
+      trainPath: { label: 'Train path', color: '#5dade2' },
+    };
 
     let activeSignal = null;
     let activeVariant = null;
+    let activeSpecial = null;
     let selectedWp = -1;
     let dragging = null;
     let dragOffset = { x: 0, y: 0 };
 
     const pathButtonsEl = document.getElementById('path-buttons');
     const variantButtonsEl = document.getElementById('variant-buttons');
+    const specialButtonsEl = document.getElementById('special-buttons');
     const wpListEl = document.getElementById('wp-list');
+    const specialListEl = document.getElementById('special-list');
     const editSection = document.getElementById('edit-section');
     const modeInfo = document.getElementById('mode-info');
     const signalIdInput = document.getElementById('signal-id');
@@ -122,46 +134,31 @@
     const variantDescInput = document.getElementById('variant-desc');
     const outputEl = document.getElementById('output');
 
-    function getSignals() {
-      return Object.keys(pathData);
-    }
-
-    function getActiveSignal() {
-      return activeSignal ? pathData[activeSignal] : null;
-    }
-
+    function getSignals() { return Object.keys(pathData); }
+    function getActiveSignal() { return activeSignal ? pathData[activeSignal] : null; }
     function getActiveVariantObj() {
       const signal = getActiveSignal();
       if (!signal) return null;
       return signal.variants.find(v => v.id === activeVariant) || null;
     }
+    function getActiveSpecialObj() {
+      return activeSpecial ? railLayout[activeSpecial] : null;
+    }
 
     function ensureSelection() {
       const signals = getSignals();
-      if (!signals.length) {
+      if (activeSignal && !pathData[activeSignal]) {
         activeSignal = null;
         activeVariant = null;
-        return;
       }
-      if (!activeSignal || !pathData[activeSignal]) activeSignal = signals[0];
+      if (!activeSignal && !activeSpecial && signals.length) {
+        activeSignal = signals[0];
+        activeVariant = pathData[activeSignal]?.variants[0]?.id || null;
+      }
       const signal = getActiveSignal();
-      if (!signal.variants.length) {
-        signal.variants.push(defaultVariant(signal.desc));
+      if (signal && (!activeVariant || !signal.variants.some(v => v.id === activeVariant))) {
+        activeVariant = signal.variants[0]?.id || null;
       }
-      if (!activeVariant || !signal.variants.some(v => v.id === activeVariant)) {
-        activeVariant = signal.variants[0].id;
-      }
-    }
-
-    function defaultVariant(desc = 'route') {
-      return {
-        id: `variant${Math.floor(Math.random() * 1000)}`,
-        desc,
-        color: getActiveSignal()?.color || '#888888',
-        points: [],
-        detectIdx: 0,
-        stopIdx: 0,
-      };
     }
 
     function buildButtons() {
@@ -173,11 +170,27 @@
         btn.innerHTML = `<span class="dot" style="background:${signal.color}"></span>${id} ${signal.desc}`;
         btn.onclick = () => {
           activeSignal = id;
-          activeVariant = pathData[id].variants[0]?.id || null;
+          activeVariant = signal.variants[0]?.id || null;
+          activeSpecial = null;
           selectedWp = -1;
           refresh();
         };
         pathButtonsEl.appendChild(btn);
+      }
+
+      specialButtonsEl.innerHTML = '';
+      for (const [key, meta] of Object.entries(SPECIAL_ITEMS)) {
+        const btn = document.createElement('span');
+        btn.className = 'special-btn' + (activeSpecial === key ? ' active' : '');
+        btn.textContent = meta.label;
+        btn.onclick = () => {
+          activeSpecial = key;
+          activeSignal = null;
+          activeVariant = null;
+          selectedWp = -1;
+          refresh();
+        };
+        specialButtonsEl.appendChild(btn);
       }
     }
 
@@ -189,17 +202,12 @@
         const btn = document.createElement('span');
         btn.className = 'variant-btn' + (activeVariant === variant.id ? ' active' : '');
         btn.textContent = `${variant.id} ${variant.desc || ''}`.trim();
-        btn.onclick = () => {
-          activeVariant = variant.id;
-          selectedWp = -1;
-          refresh();
-        };
+        btn.onclick = () => { activeVariant = variant.id; selectedWp = -1; refresh(); };
         variantButtonsEl.appendChild(btn);
       }
     }
 
     function updateEditPanel() {
-      ensureSelection();
       const signal = getActiveSignal();
       const variant = getActiveVariantObj();
       if (!signal || !variant) {
@@ -212,41 +220,40 @@
       signalColorInput.value = signal.color;
       variantDescInput.value = variant.desc || '';
 
-      let html = '';
-      for (let i = 0; i < variant.points.length; i++) {
-        const pt = variant.points[i];
+      wpListEl.innerHTML = variant.points.map((pt, i) => {
         let tags = '';
         if (i === variant.detectIdx) tags += '<span class="tag detect">DETECT</span> ';
         if (i === variant.stopIdx) tags += '<span class="tag stop">STOP</span> ';
         const sel = i === selectedWp ? 'background:rgba(233,69,96,0.2);' : '';
-        html += `<div class="wp-row" style="${sel}" data-select="${i}">
-          <span class="idx">${i}</span>
-          <span class="coord">[${pt[0]}, ${pt[1]}]</span>
-          ${tags}
-          <button data-delete="${i}" title="Delete">x</button>
-        </div>`;
-      }
-      wpListEl.innerHTML = html;
-      modeInfo.textContent = `Editing ${activeSignal} / ${activeVariant}. Click canvas to add waypoint. Drag to move. Right-click to delete.`;
+        return `<div class="wp-row" style="${sel}" data-select="${i}"><span class="idx">${i}</span><span class="coord">[${pt[0]}, ${pt[1]}]</span>${tags}<button data-delete="${i}">x</button></div>`;
+      }).join('');
 
-      wpListEl.querySelectorAll('[data-select]').forEach(el => {
-        el.addEventListener('click', () => {
-          selectedWp = Number(el.dataset.select);
-          refresh();
-        });
-      });
-      wpListEl.querySelectorAll('[data-delete]').forEach(el => {
-        el.addEventListener('click', (event) => {
-          event.stopPropagation();
-          deleteWp(Number(el.dataset.delete));
-        });
-      });
+      wpListEl.querySelectorAll('[data-select]').forEach(el => el.addEventListener('click', () => { selectedWp = Number(el.dataset.select); activeSpecial = null; refresh(); }));
+      wpListEl.querySelectorAll('[data-delete]').forEach(el => el.addEventListener('click', (event) => { event.stopPropagation(); deleteWp(Number(el.dataset.delete)); }));
+    }
+
+    function updateSpecialPanel() {
+      const special = getActiveSpecialObj();
+      if (!special) return;
+      specialListEl.innerHTML = special.points.map((pt, i) => {
+        const sel = i === selectedWp && activeSpecial ? 'background:rgba(233,69,96,0.2);' : '';
+        return `<div class="wp-row" style="${sel}" data-special-select="${i}"><span class="idx">${i}</span><span class="coord">[${pt[0]}, ${pt[1]}]</span></div>`;
+      }).join('');
+      specialListEl.querySelectorAll('[data-special-select]').forEach(el => el.addEventListener('click', () => { selectedWp = Number(el.dataset.specialSelect); refresh(); }));
     }
 
     function refresh() {
       buildButtons();
       buildVariantButtons();
       updateEditPanel();
+      updateSpecialPanel();
+      if (activeSpecial) {
+        modeInfo.textContent = `Editing SP ${SPECIAL_ITEMS[activeSpecial].label}. Drag points directly on the canvas.`;
+      } else if (activeSignal && activeVariant) {
+        modeInfo.textContent = `Editing ${activeSignal} / ${activeVariant}. Click canvas to add waypoint. Drag to move. Right-click to delete.`;
+      } else {
+        modeInfo.textContent = 'Select a traffic light or SP layout element to edit.';
+      }
       render();
     }
 
@@ -254,22 +261,28 @@
       const rect = canvas.getBoundingClientRect();
       const scaleX = 640 / rect.width;
       const scaleY = 640 / rect.height;
-      return {
-        x: Math.round((e.clientX - rect.left) * scaleX),
-        y: Math.round((e.clientY - rect.top) * scaleY),
-      };
+      return { x: Math.round((e.clientX - rect.left) * scaleX), y: Math.round((e.clientY - rect.top) * scaleY) };
     }
 
-    function findWaypointAt(pos, radius) {
+    function findNormalWaypoint(pos, radius) {
       const signal = getActiveSignal();
       if (!signal) return null;
       for (const variant of signal.variants) {
         for (let i = 0; i < variant.points.length; i++) {
           const dx = variant.points[i][0] - pos.x;
           const dy = variant.points[i][1] - pos.y;
-          if (dx * dx + dy * dy < radius * radius) {
-            return { variantId: variant.id, wpIdx: i };
-          }
+          if (dx * dx + dy * dy < radius * radius) return { type: 'normal', variantId: variant.id, wpIdx: i };
+        }
+      }
+      return null;
+    }
+
+    function findSpecialWaypoint(pos, radius) {
+      for (const [key, special] of Object.entries(railLayout)) {
+        for (let i = 0; i < special.points.length; i++) {
+          const dx = special.points[i][0] - pos.x;
+          const dy = special.points[i][1] - pos.y;
+          if (dx * dx + dy * dy < radius * radius) return { type: 'special', specialKey: key, wpIdx: i };
         }
       }
       return null;
@@ -288,21 +301,39 @@
     canvas.addEventListener('mousedown', (e) => {
       if (e.button === 2) return;
       const pos = getCanvasPos(e);
-      const hit = findWaypointAt(pos, 10);
+
+      if (activeSpecial) {
+        const specialHit = findSpecialWaypoint(pos, 10);
+        if (!specialHit || specialHit.specialKey !== activeSpecial) {
+          selectedWp = -1;
+          refresh();
+          return;
+        }
+        selectedWp = specialHit.wpIdx;
+        const point = railLayout[specialHit.specialKey].points[specialHit.wpIdx];
+        dragOffset = { x: point[0] - pos.x, y: point[1] - pos.y };
+        dragging = specialHit;
+        refresh();
+        return;
+      }
+
+      const hit = findNormalWaypoint(pos, 10);
       const variant = getActiveVariantObj();
-      if (!variant) return;
+      if (!variant) {
+        selectedWp = -1;
+        refresh();
+        return;
+      }
 
       if (hit) {
         activeVariant = hit.variantId;
         dragging = hit;
-        if (hit.variantId === activeVariant) selectedWp = hit.wpIdx;
+        selectedWp = hit.wpIdx;
         const point = getActiveVariantObj().points[hit.wpIdx];
         dragOffset = { x: point[0] - pos.x, y: point[1] - pos.y };
         refresh();
       } else {
-        let insertIdx;
-        if (selectedWp >= 0 && selectedWp < variant.points.length - 1) insertIdx = selectedWp + 1;
-        else insertIdx = variant.points.length;
+        let insertIdx = selectedWp >= 0 && selectedWp < variant.points.length - 1 ? selectedWp + 1 : variant.points.length;
         variant.points.splice(insertIdx, 0, [pos.x, pos.y]);
         if (variant.detectIdx >= insertIdx) variant.detectIdx++;
         if (variant.stopIdx >= insertIdx) variant.stopIdx++;
@@ -313,39 +344,85 @@
 
     canvas.addEventListener('mousemove', (e) => {
       if (!dragging) return;
-      const variant = getActiveSignal().variants.find(v => v.id === dragging.variantId);
-      if (!variant) return;
       const pos = getCanvasPos(e);
-      const pt = variant.points[dragging.wpIdx];
-      pt[0] = Math.max(0, Math.min(640, pos.x + dragOffset.x));
-      pt[1] = Math.max(0, Math.min(640, pos.y + dragOffset.y));
+      if (dragging.type === 'special') {
+        const pt = railLayout[dragging.specialKey].points[dragging.wpIdx];
+        pt[0] = Math.max(0, Math.min(640, pos.x + dragOffset.x));
+        pt[1] = Math.max(0, Math.min(640, pos.y + dragOffset.y));
+      } else {
+        const variant = getActiveSignal().variants.find(v => v.id === dragging.variantId);
+        if (!variant) return;
+        const pt = variant.points[dragging.wpIdx];
+        pt[0] = Math.max(0, Math.min(640, pos.x + dragOffset.x));
+        pt[1] = Math.max(0, Math.min(640, pos.y + dragOffset.y));
+      }
       render();
     });
 
     canvas.addEventListener('mouseup', () => {
-      if (dragging) {
-        dragging = null;
-        updateEditPanel();
-      }
+      dragging = null;
+      updateEditPanel();
+      updateSpecialPanel();
     });
 
     canvas.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       const pos = getCanvasPos(e);
-      const hit = findWaypointAt(pos, 10);
+      if (activeSpecial) return;
+      const hit = findNormalWaypoint(pos, 10);
       if (hit && hit.variantId === activeVariant) deleteWp(hit.wpIdx);
     });
 
-    function render() {
-      ctx.clearRect(0, 0, 640, 640);
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      activeSignal = null;
+      activeVariant = null;
+      activeSpecial = null;
+      selectedWp = -1;
+      dragging = null;
+      refresh();
+    });
 
+    function renderSpecial() {
+      for (const [key, special] of Object.entries(railLayout)) {
+        const meta = SPECIAL_ITEMS[key];
+        const isActive = activeSpecial === key;
+        ctx.beginPath();
+        ctx.strokeStyle = meta.color + (isActive ? 'dd' : '66');
+        ctx.lineWidth = isActive ? 3 : 1.5;
+        if (special.points.length >= 2) {
+          ctx.moveTo(special.points[0][0], special.points[0][1]);
+          for (let i = 1; i < special.points.length; i++) ctx.lineTo(special.points[i][0], special.points[i][1]);
+          ctx.stroke();
+        }
+        for (let i = 0; i < special.points.length; i++) {
+          const pt = special.points[i];
+          ctx.beginPath();
+          ctx.arc(pt[0], pt[1], isActive ? 6 : 4, 0, Math.PI * 2);
+          ctx.fillStyle = meta.color;
+          ctx.fill();
+          if (isActive && selectedWp === i) {
+            ctx.beginPath();
+            ctx.arc(pt[0], pt[1], 9, 0, Math.PI * 2);
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+          }
+        }
+        const labelPt = special.points[0];
+        ctx.fillStyle = isActive ? '#fff' : '#aaa';
+        ctx.font = '11px monospace';
+        ctx.fillText(meta.label, labelPt[0] + 10, labelPt[1] - 6);
+      }
+    }
+
+    function renderPaths() {
       for (const [signalId, signal] of Object.entries(pathData)) {
-        const isActiveSignal = signalId === activeSignal;
+        const isActiveSignal = signalId === activeSignal && !activeSpecial;
         for (const variant of signal.variants) {
-          if (variant.points.length < 1) continue;
+          if (!variant.points.length) continue;
           const isActiveVariant = isActiveSignal && variant.id === activeVariant;
           const alpha = isActiveVariant ? 1 : isActiveSignal ? 0.65 : 0.25;
-
           if (variant.points.length >= 2) {
             ctx.beginPath();
             ctx.strokeStyle = signal.color + (isActiveVariant ? 'dd' : '66');
@@ -356,7 +433,6 @@
             ctx.stroke();
             ctx.setLineDash([]);
           }
-
           if (variant.detectIdx < variant.points.length && variant.stopIdx < variant.points.length && variant.detectIdx !== variant.stopIdx) {
             ctx.beginPath();
             ctx.strokeStyle = `rgba(255,200,0,${isActiveVariant ? 0.5 : 0.15})`;
@@ -368,7 +444,6 @@
             for (let i = start + 1; i <= end; i++) ctx.lineTo(variant.points[i][0], variant.points[i][1]);
             ctx.stroke();
           }
-
           for (let i = 0; i < variant.points.length; i++) {
             const pt = variant.points[i];
             const r = isActiveVariant ? 6 : 3;
@@ -388,82 +463,76 @@
               ctx.lineWidth = 2;
               ctx.stroke();
             }
-            if (isActiveVariant) {
-              ctx.fillStyle = '#fff';
-              ctx.font = '9px monospace';
-              ctx.textAlign = 'center';
-              ctx.fillText(i.toString(), pt[0], pt[1] - r - 3);
-            }
           }
         }
-
-        const ref = signal.variants[0]?.points?.[1] || signal.variants[0]?.points?.[0];
-        if (ref) {
-          ctx.fillStyle = signalId === activeSignal ? '#fff' : '#888';
-          ctx.font = (signalId === activeSignal ? 'bold ' : '') + '11px monospace';
-          ctx.textAlign = 'left';
-          ctx.fillText(signalId, ref[0] + 10, ref[1] + 4);
-        }
       }
     }
 
-    function serializableData() {
-      const out = {};
+    function render() {
+      ctx.clearRect(0, 0, 640, 640);
+      renderSpecial();
+      renderPaths();
+    }
+
+    function exportBundle() {
+      const raw = {};
       for (const [signalId, signal] of Object.entries(pathData)) {
-        out[signalId] = {
+        raw[signalId] = {
           color: signal.color,
           desc: signal.desc,
-          variants: signal.variants.map(variant => ({
-            id: variant.id,
-            desc: variant.desc,
-            points: variant.points,
-            stopIdx: variant.stopIdx,
-            detectIdx: variant.detectIdx,
-          })),
+          variants: signal.variants.map(v => ({ id: v.id, desc: v.desc, points: v.points, stopIdx: v.stopIdx, detectIdx: v.detectIdx })),
         };
       }
-      return out;
+      return { RAW_PATHS: raw, RAIL_LAYOUT: railLayout };
     }
 
-    function exportPaths() {
-      outputEl.value = JSON.stringify(serializableData(), null, 2);
+    function exportJson() {
+      outputEl.value = JSON.stringify(exportBundle(), null, 2);
     }
 
     function exportCode() {
-      outputEl.value = `export const RAW_PATHS = ${JSON.stringify(serializableData(), null, 2)};`;
+      const bundle = exportBundle();
+      outputEl.value = `export const RAW_PATHS = ${JSON.stringify(bundle.RAW_PATHS, null, 2)};\n\nexport const RAIL_LAYOUT = ${JSON.stringify(bundle.RAIL_LAYOUT, null, 2)};`;
     }
 
     function importJson() {
       const text = outputEl.value.trim();
       try {
-        let data = text;
-        if (text.startsWith('export const RAW_PATHS =')) {
-          data = text.replace(/^export const RAW_PATHS =\s*/, '').replace(/;$/, '');
-        } else if (text.startsWith('const RAW_PATHS =')) {
-          data = text.replace(/^const RAW_PATHS =\s*/, '').replace(/;$/, '');
+        let parsed;
+        if (text.startsWith('export const RAW_PATHS =') || text.startsWith('const RAW_PATHS =')) {
+          const rawMatch = text.match(/RAW_PATHS\s*=\s*([\s\S]*?)\n\s*(?:export const RAIL_LAYOUT|const RAIL_LAYOUT|$)/);
+          const railMatch = text.match(/RAIL_LAYOUT\s*=\s*([\s\S]*?)\s*;?$/);
+          parsed = {
+            RAW_PATHS: rawMatch ? JSON.parse(rawMatch[1].trim().replace(/;$/, '')) : {},
+            RAIL_LAYOUT: railMatch ? JSON.parse(railMatch[1].trim().replace(/;$/, '')) : null,
+          };
+        } else {
+          parsed = JSON.parse(text);
         }
-        const parsed = JSON.parse(data);
-        const normalized = normalizePathDefinitions(parsed);
+        const normalized = normalizePathDefinitions(parsed.RAW_PATHS || parsed);
         for (const key of Object.keys(pathData)) delete pathData[key];
         Object.assign(pathData, normalized);
+        if (parsed.RAIL_LAYOUT) {
+          Object.assign(railLayout, parsed.RAIL_LAYOUT);
+        }
         activeSignal = Object.keys(pathData)[0] || null;
         activeVariant = pathData[activeSignal]?.variants?.[0]?.id || null;
         selectedWp = -1;
         refresh();
-        alert('Imported successfully!');
       } catch (e) {
         alert('Import failed: ' + e.message);
       }
     }
 
     document.getElementById('add-light-btn').addEventListener('click', () => {
-      const id = prompt('New traffic light ID (for example 42 or 5.1):');
+      const id = prompt('New traffic light ID:');
       if (!id || pathData[id]) return;
       const desc = prompt('Description:', id) || id;
       const color = prompt('Color hex:', '#888888') || '#888888';
-      pathData[id] = { signalId: id, desc, color, variants: [{ id: 'main', desc, color, points: [], detectIdx: 0, stopIdx: 0 }] };
+      pathData[id] = { signalId: id, desc, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0 }] };
       activeSignal = id;
       activeVariant = 'main';
+      activeSpecial = null;
       selectedWp = -1;
       refresh();
     });
@@ -476,6 +545,7 @@
       pathData[id] = structuredClone({ ...signal, signalId: id });
       activeSignal = id;
       activeVariant = pathData[id].variants[0]?.id || null;
+      activeSpecial = null;
       refresh();
     });
 
@@ -483,9 +553,8 @@
       if (!activeSignal) return;
       if (!confirm(`Delete traffic light ${activeSignal}?`)) return;
       delete pathData[activeSignal];
-      activeSignal = null;
-      activeVariant = null;
-      selectedWp = -1;
+      activeSignal = Object.keys(pathData)[0] || null;
+      activeVariant = pathData[activeSignal]?.variants?.[0]?.id || null;
       refresh();
     });
 
@@ -495,9 +564,8 @@
       const id = prompt('Variant ID:', `route${signal.variants.length + 1}`);
       if (!id || signal.variants.some(v => v.id === id)) return;
       const desc = prompt('Variant description:', signal.desc) || signal.desc;
-      signal.variants.push({ id, desc, color: signal.color, points: [], detectIdx: 0, stopIdx: 0 });
+      signal.variants.push({ id, desc, points: [], detectIdx: 0, stopIdx: 0 });
       activeVariant = id;
-      selectedWp = -1;
       refresh();
     });
 
@@ -506,8 +574,6 @@
       if (!variant) return;
       const id = prompt('Rename variant ID:', variant.id);
       if (!id) return;
-      const signal = getActiveSignal();
-      if (signal.variants.some(v => v !== variant && v.id === id)) return;
       variant.id = id;
       activeVariant = id;
       refresh();
@@ -516,62 +582,19 @@
     document.getElementById('del-variant-btn').addEventListener('click', () => {
       const signal = getActiveSignal();
       if (!signal || signal.variants.length <= 1) return;
-      if (!confirm(`Delete variant ${activeVariant}?`)) return;
       signal.variants = signal.variants.filter(v => v.id !== activeVariant);
       activeVariant = signal.variants[0]?.id || null;
-      selectedWp = -1;
       refresh();
     });
 
-    signalDescInput.addEventListener('input', () => {
-      const signal = getActiveSignal();
-      if (!signal) return;
-      signal.desc = signalDescInput.value;
-      refresh();
-    });
+    signalDescInput.addEventListener('input', () => { const signal = getActiveSignal(); if (signal) { signal.desc = signalDescInput.value; refresh(); } });
+    signalColorInput.addEventListener('input', () => { const signal = getActiveSignal(); if (signal) { signal.color = signalColorInput.value; refresh(); } });
+    variantDescInput.addEventListener('input', () => { const variant = getActiveVariantObj(); if (variant) { variant.desc = variantDescInput.value; refresh(); } });
+    document.getElementById('set-detect-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.detectIdx = selectedWp; refresh(); } });
+    document.getElementById('set-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.stopIdx = selectedWp; refresh(); } });
+    document.getElementById('clear-variant-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.points = []; variant.detectIdx = 0; variant.stopIdx = 0; selectedWp = -1; refresh(); } });
 
-    signalColorInput.addEventListener('input', () => {
-      const signal = getActiveSignal();
-      if (!signal) return;
-      signal.color = signalColorInput.value;
-      refresh();
-    });
-
-    variantDescInput.addEventListener('input', () => {
-      const variant = getActiveVariantObj();
-      if (!variant) return;
-      variant.desc = variantDescInput.value;
-      refresh();
-    });
-
-    document.getElementById('set-detect-btn').addEventListener('click', () => {
-      const variant = getActiveVariantObj();
-      if (variant && selectedWp >= 0) {
-        variant.detectIdx = selectedWp;
-        refresh();
-      }
-    });
-
-    document.getElementById('set-stop-btn').addEventListener('click', () => {
-      const variant = getActiveVariantObj();
-      if (variant && selectedWp >= 0) {
-        variant.stopIdx = selectedWp;
-        refresh();
-      }
-    });
-
-    document.getElementById('clear-variant-btn').addEventListener('click', () => {
-      const variant = getActiveVariantObj();
-      if (variant && confirm(`Clear all waypoints for ${activeSignal}/${activeVariant}?`)) {
-        variant.points = [];
-        variant.detectIdx = 0;
-        variant.stopIdx = 0;
-        selectedWp = -1;
-        refresh();
-      }
-    });
-
-    document.getElementById('export-json-btn').addEventListener('click', exportPaths);
+    document.getElementById('export-json-btn').addEventListener('click', exportJson);
     document.getElementById('export-code-btn').addEventListener('click', exportCode);
     document.getElementById('import-json-btn').addEventListener('click', importJson);
 

@@ -20,8 +20,8 @@ let config = {
   endpoint: CONTROLLER_ENDPOINT,
   postInterval: parseInt(process.env.POST_INTERVAL || "3000", 10),
   spawnInterval: parseInt(process.env.SPAWN_INTERVAL || "6000", 10),
-  trainLeadMs: parseInt(process.env.TRAIN_LEAD_MS || "8000", 10),
-  trainActiveMs: parseInt(process.env.TRAIN_ACTIVE_MS || "12000", 10),
+  trainLeadMs: parseInt(process.env.TRAIN_LEAD_MS || "5000", 10),
+  trainActiveMs: parseInt(process.env.TRAIN_ACTIVE_MS || "6000", 10),
 };
 
 function saveConfigFile() {

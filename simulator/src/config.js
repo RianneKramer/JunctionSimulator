@@ -10,8 +10,8 @@ const DEFAULT_CONFIG = {
   endpoint: '/data',
   postInterval: 3000,
   spawnInterval: 6000,
-  trainLeadMs: 8000,
-  trainActiveMs: 12000,
+  trainLeadMs: 5000,
+  trainActiveMs: 6000,
 };
 
 const CONFIG_RETRY_ATTEMPTS = 3;

@@ -288,9 +288,24 @@ export const RAW_PATHS = {
   },
 };
 
-/**
- * Non-car lights that currently use one-shot request buttons.
- */
+export const RAIL_LAYOUT = {
+  crossing: {
+    points: [
+      [0, 480],
+      [640, 482],
+    ],
+  },
+  signal: {
+    points: [[212, 425]],
+  },
+  trainPath: {
+    points: [
+      [636, 483],
+      [2, 480],
+    ],
+  },
+};
+
 export const MANUAL_LIGHTS = {
   42: { desc: "Bus E", cat: "bus" },
   22: { desc: "Fiets Oost", cat: "fiets" },
@@ -316,10 +331,6 @@ export const SPECIAL_LIGHTS = {
   [RAIL_SIGNAL_ID]: { desc: "Rail crossing", cat: "train" },
 };
 
-/**
- * Normalize legacy single-path entries and richer multi-variant entries into a
- * single frontend-friendly structure.
- */
 export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
   const normalized = {};
 
