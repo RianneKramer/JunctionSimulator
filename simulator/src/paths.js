@@ -6,7 +6,7 @@
  *
  * To edit these visually, use the path editor at /editor.html.
  */
-export const RAIL_SIGNAL_ID = "SP";
+export const RAIL_SIGNAL_ID = "sb";
 
 export const RAW_PATHS = {
   1.1: {

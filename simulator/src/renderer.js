@@ -62,7 +62,7 @@ function drawRailCrossing(ctx, spState) {
   ctx.fillStyle = '#fff';
   ctx.font = '8px monospace';
   ctx.textAlign = 'center';
-  ctx.fillText('SP', boxX, boxY - 22);
+  ctx.fillText('sb', boxX, boxY - 22);
 
   ctx.restore();
 }

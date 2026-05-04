@@ -3,7 +3,7 @@
  *
  * Protocol constraint: trainArrivalTimestamp is the moment the train nose
  * appears at the editable train-path start point. The controller uses that as
- * the anchor for SP preemption. The train then continues across the full path
+ * the anchor for sb preemption. The train then continues across the full path
  * until its tail is fully off-screen.
  */
 

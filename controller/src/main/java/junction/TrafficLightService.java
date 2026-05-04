@@ -15,7 +15,7 @@ public class TrafficLightService {
     private long orangeMs = 3000;
     private long minRedMs = 4000;
 
-    private static final String TRAIN_SIGNAL_ID = "SP";
+    private static final String TRAIN_SIGNAL_ID = "sb";
     private long trainLeadMs = 5000;
     private long trainActiveMs = 6000;
 
