@@ -18,6 +18,14 @@ export default class ControllerClient {
       currentTimestamp: Date.now(),
       trafficLights: trafficLights
     };
+    //http://localhost:8000/capture
+    fetch("https://controller.jelte.frl/api", {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+    }).catch(err => {
+      console.warn('[Simulator] capture failed:', err.message);
+    });
 
     console.log('[Simulator] POST to controller:', JSON.stringify(payload));
 

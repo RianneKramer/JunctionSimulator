@@ -1,0 +1,10 @@
+{
+  "currentTimestamp": 1777891473646,
+  "trafficLights": [
+    {
+      "id": "1.1",
+      "hasEntity": true,
+      "triggeredTimestamp": 1777890419974
+    }
+  ]
+}
