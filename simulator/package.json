@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "concurrently \"node server.js\" \"npx vite\"",
+    "start": "concurrently \"bun server.js\" \"bunx vite\"",
     "start:bun": "concurrently \"bun server.js\" \"bunx vite\"",
-    "dev": "npx vite",
+    "dev": "bunx vite",
     "dev:bun": "bunx vite",
-    "server": "node server.js",
+    "server": "bun server.js",
     "server:bun": "bun server.js"
   },
   "dependencies": {

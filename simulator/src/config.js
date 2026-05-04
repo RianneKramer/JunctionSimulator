@@ -10,8 +10,11 @@ const DEFAULT_CONFIG = {
   endpoint: '/data',
   postInterval: 3000,
   spawnInterval: 6000,
-  trainLeadMs: 5000,
-  trainActiveMs: 6000,
+  trainIntervalMs: 90000,
+  trainWarningMs: 5000,
+  trainLoweringMs: 15000,
+  trainClosedMs: 30000,
+  trainRaisingMs: 15000,
 };
 
 const CONFIG_RETRY_ATTEMPTS = 3;
@@ -54,7 +57,15 @@ export async function loadConfig() {
       }
       config.endpoint = '/data';
 
-      const numericKeys = ['postInterval', 'spawnInterval', 'trainLeadMs', 'trainActiveMs'];
+      const numericKeys = [
+        'postInterval',
+        'spawnInterval',
+        'trainIntervalMs',
+        'trainWarningMs',
+        'trainLoweringMs',
+        'trainClosedMs',
+        'trainRaisingMs',
+      ];
       for (const key of numericKeys) {
         const value = Number(data[key]);
         if (Number.isFinite(value) && value > 0) {

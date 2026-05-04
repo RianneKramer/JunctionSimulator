@@ -16,8 +16,10 @@ public class TrafficLightService {
     private long minRedMs = 4000;
 
     private static final String TRAIN_SIGNAL_ID = "sb";
-    private long trainLeadMs = 5000;
-    private long trainActiveMs = 6000;
+    private long trainWarningMs = 5000;
+    private long trainLoweringMs = 15000;
+    private long trainClosedMs = 30000;
+    private long trainRaisingMs = 15000;
 
     private final ConflictMatrix matrix;
 
@@ -63,19 +65,18 @@ public class TrafficLightService {
     private boolean applyTrainState(long currentTimestamp, long trainArrivalTimestamp) {
         if (trainArrivalTimestamp <= 0) {
             entityPresence.put(TRAIN_SIGNAL_ID, false);
-            setState(TRAIN_SIGNAL_ID, 0, currentTimestamp);
+            setState(TRAIN_SIGNAL_ID, 2, currentTimestamp);
             return false;
         }
 
-        long preemptAt = trainArrivalTimestamp - trainLeadMs;
-        long releaseAt = trainArrivalTimestamp + trainActiveMs;
-        boolean active = currentTimestamp >= preemptAt && currentTimestamp <= releaseAt;
+        long redUntil = trainArrivalTimestamp + getTrainProcedureDurationMs();
+        boolean active = currentTimestamp >= trainArrivalTimestamp && currentTimestamp < redUntil;
 
         entityPresence.put(TRAIN_SIGNAL_ID, active);
-        triggeredTimestamps.put(TRAIN_SIGNAL_ID, preemptAt);
+        triggeredTimestamps.put(TRAIN_SIGNAL_ID, trainArrivalTimestamp);
 
         if (!active) {
-            setState(TRAIN_SIGNAL_ID, 0, currentTimestamp);
+            setState(TRAIN_SIGNAL_ID, 2, currentTimestamp);
             return false;
         }
 
@@ -87,9 +88,12 @@ public class TrafficLightService {
             }
         }
 
-        setState(TRAIN_SIGNAL_ID, 2, currentTimestamp);
-        greenSince.put(TRAIN_SIGNAL_ID, currentTimestamp);
+        setState(TRAIN_SIGNAL_ID, 0, currentTimestamp);
         return true;
+    }
+
+    private long getTrainProcedureDurationMs() {
+        return trainWarningMs + trainLoweringMs + trainClosedMs + trainRaisingMs;
     }
 
     private void transitionOrangeToRed(long currentTimestamp) {
@@ -179,6 +183,7 @@ public class TrafficLightService {
     private Set<String> getOccupiedSignals() {
         Set<String> occ = new HashSet<>();
         for (Map.Entry<String, Integer> e : states.entrySet()) {
+            if (TRAIN_SIGNAL_ID.equals(e.getKey())) continue;
             if (e.getValue() == 2 || e.getValue() == 1) occ.add(e.getKey());
         }
         return occ;
@@ -194,8 +199,10 @@ public class TrafficLightService {
         cfg.put("maxGreenMs", maxGreenMs);
         cfg.put("orangeMs", orangeMs);
         cfg.put("minRedMs", minRedMs);
-        cfg.put("trainLeadMs", trainLeadMs);
-        cfg.put("trainActiveMs", trainActiveMs);
+        cfg.put("trainWarningMs", trainWarningMs);
+        cfg.put("trainLoweringMs", trainLoweringMs);
+        cfg.put("trainClosedMs", trainClosedMs);
+        cfg.put("trainRaisingMs", trainRaisingMs);
         return cfg;
     }
 
@@ -205,6 +212,14 @@ public class TrafficLightService {
         this.orangeMs = orange;
         this.minRedMs = minRed;
         System.out.println("[Controller] Timing updated: minGreen=" + minGreen + " maxGreen=" + maxGreen + " orange=" + orange + " minRed=" + minRed);
+    }
+
+    public void setTrainTimingConfig(long warning, long lowering, long closed, long raising) {
+        this.trainWarningMs = warning;
+        this.trainLoweringMs = lowering;
+        this.trainClosedMs = closed;
+        this.trainRaisingMs = raising;
+        System.out.println("[Controller] Train timing updated: warning=" + warning + " lowering=" + lowering + " closed=" + closed + " raising=" + raising);
     }
 
     public static class LightUpdate {

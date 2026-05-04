@@ -118,12 +118,24 @@ export function updatePanel(lightStates, connected) {
   const trainState = getTrainScheduleState();
   const trainStatus = document.getElementById('train-status');
   if (trainStatus) {
-    if (trainState.isCrossing) {
-      trainStatus.textContent = `Train crossing | clears in ${Math.max(0, Math.ceil((trainState.currentActiveUntil - Date.now()) / 1000))}s`;
+    const now = Date.now();
+    if (trainState.phase === 'warning') {
+      const loweringAt = trainState.currentArrivalAt + trainState.trainWarningMs;
+      trainStatus.textContent = `Warning | barriers lowering in ${secondsUntil(loweringAt, now)}s`;
+    } else if (trainState.phase === 'lowering') {
+      trainStatus.textContent = `Barriers lowering | closed in ${secondsUntil(trainState.closedStartAt, now)}s`;
+    } else if (trainState.phase === 'closed') {
+      trainStatus.textContent = `Train passing | opens in ${secondsUntil(trainState.closedUntil, now)}s`;
+    } else if (trainState.phase === 'raising') {
+      trainStatus.textContent = `Barriers raising | clears in ${secondsUntil(trainState.redUntil, now)}s`;
     } else if (trainState.nextArrivalAt) {
       trainStatus.textContent = `Next train spawns in ${Math.max(0, Math.ceil((trainState.nextArrivalAt - Date.now()) / 1000))}s`;
     } else {
       trainStatus.textContent = 'No train scheduled';
     }
   }
+}
+
+function secondsUntil(timestamp, now = Date.now()) {
+  return Math.max(0, Math.ceil((timestamp - now) / 1000));
 }

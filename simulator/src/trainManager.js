@@ -1,28 +1,51 @@
 /**
  * Train scheduling and animation state.
  *
- * Protocol constraint: trainArrivalTimestamp is the moment the train nose
- * appears at the editable train-path start point. The controller uses that as
- * the anchor for sb preemption. The train then continues across the full path
- * until its tail is fully off-screen.
+ * Protocol constraint: trainArrivalTimestamp is the start of the rail crossing
+ * procedure. From that moment traffic must stop. The simulator keeps the
+ * detailed phase timing local; only the timestamp is sent to the controller.
  */
 
 import { RAIL_LAYOUT } from './paths.js';
 import { buildPath, posAt } from './pathMath.js';
 
-let trainLeadMs = 5000;
-let trainActiveMs = 6000;
-let nextTrainSpawnAt = 0;
-let currentTrainSpawnAt = 0;
-let currentTrainActiveUntil = 0;
+let trainIntervalMs = 90000;
+let trainWarningMs = 5000;
+let trainLoweringMs = 15000;
+let trainClosedMs = 30000;
+let trainRaisingMs = 15000;
+let nextTrainArrivalAt = 0;
+let currentTrainArrivalAt = 0;
 
-const DEFAULT_NEXT_TRAIN_GAP_MS = 60000;
 const TRAIN_CABIN_COUNT = 3;
 const TRAIN_CABIN_SPACING = 110;
 const TRAIN_CABIN_LENGTH = 108;
 
-function pickNextGapMs() {
-  return DEFAULT_NEXT_TRAIN_GAP_MS + Math.round(Math.random() * 20000);
+function getProcedureDurationMs() {
+  return trainWarningMs + trainLoweringMs + trainClosedMs + trainRaisingMs;
+}
+
+function getClosedStartOffsetMs() {
+  return trainWarningMs + trainLoweringMs;
+}
+
+function getRaisingStartOffsetMs() {
+  return getClosedStartOffsetMs() + trainClosedMs;
+}
+
+function getPhaseAt(now, arrivalAt) {
+  if (!arrivalAt) return 'waiting';
+  const elapsed = now - arrivalAt;
+  if (elapsed < 0) return 'waiting';
+  if (elapsed < trainWarningMs) return 'warning';
+  if (elapsed < getClosedStartOffsetMs()) return 'lowering';
+  if (elapsed < getRaisingStartOffsetMs()) return 'closed';
+  if (elapsed < getProcedureDurationMs()) return 'raising';
+  return 'waiting';
+}
+
+function normalizePositiveMs(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
 }
 
 function getTrainLengthPx() {
@@ -60,65 +83,81 @@ function buildExtendedTrainPath() {
 }
 
 function ensureScheduled(now = Date.now()) {
-  if (!nextTrainSpawnAt && !currentTrainActiveUntil) {
-    nextTrainSpawnAt = now + pickNextGapMs();
+  if (!nextTrainArrivalAt && !currentTrainArrivalAt) {
+    nextTrainArrivalAt = now + trainIntervalMs;
   }
 }
 
 export function configureTrain(options = {}) {
-  if (Number.isFinite(options.trainLeadMs) && options.trainLeadMs > 0) {
-    trainLeadMs = options.trainLeadMs;
-  }
-  if (Number.isFinite(options.trainActiveMs) && options.trainActiveMs > 0) {
-    trainActiveMs = options.trainActiveMs;
-  }
+  trainIntervalMs = normalizePositiveMs(options.trainIntervalMs, trainIntervalMs);
+  trainWarningMs = normalizePositiveMs(options.trainWarningMs, trainWarningMs);
+  trainLoweringMs = normalizePositiveMs(options.trainLoweringMs, trainLoweringMs);
+  trainClosedMs = normalizePositiveMs(options.trainClosedMs, trainClosedMs);
+  trainRaisingMs = normalizePositiveMs(options.trainRaisingMs, trainRaisingMs);
   ensureScheduled();
 }
 
 export function scheduleTrainAfter(delayMs) {
   const now = Date.now();
-  nextTrainSpawnAt = now + Math.max(delayMs, trainLeadMs + 1000);
+  nextTrainArrivalAt = now + Math.max(0, delayMs);
+  currentTrainArrivalAt = 0;
 }
 
 export function triggerTrainSoon() {
-  scheduleTrainAfter(trainLeadMs + 3000);
+  scheduleTrainAfter(3000);
 }
 
 export function tickTrainSchedule(now = Date.now()) {
   ensureScheduled(now);
 
-  if (!currentTrainSpawnAt && nextTrainSpawnAt && now >= nextTrainSpawnAt) {
-    currentTrainSpawnAt = nextTrainSpawnAt;
-    currentTrainActiveUntil = currentTrainSpawnAt + trainActiveMs;
-    nextTrainSpawnAt = 0;
+  if (!currentTrainArrivalAt && nextTrainArrivalAt && now >= nextTrainArrivalAt) {
+    currentTrainArrivalAt = nextTrainArrivalAt;
+    nextTrainArrivalAt = 0;
   }
 
-  if (currentTrainActiveUntil && now > currentTrainActiveUntil) {
-    currentTrainSpawnAt = 0;
-    currentTrainActiveUntil = 0;
-    nextTrainSpawnAt = now + pickNextGapMs();
+  if (currentTrainArrivalAt && now >= currentTrainArrivalAt + getProcedureDurationMs()) {
+    const previousArrivalAt = currentTrainArrivalAt;
+    currentTrainArrivalAt = 0;
+    nextTrainArrivalAt = previousArrivalAt + trainIntervalMs;
+    while (nextTrainArrivalAt <= now) {
+      nextTrainArrivalAt += trainIntervalMs;
+    }
   }
 }
 
 export function getNextTrainArrivalTimestamp() {
-  if (currentTrainSpawnAt) return currentTrainSpawnAt;
-  return nextTrainSpawnAt || 0;
+  if (currentTrainArrivalAt) return currentTrainArrivalAt;
+  return nextTrainArrivalAt || 0;
 }
 
 export function getTrainScheduleState(now = Date.now()) {
   tickTrainSchedule(now);
 
-  const activeSpawn = currentTrainSpawnAt || nextTrainSpawnAt;
-  const untilSpawn = activeSpawn ? activeSpawn - now : 0;
+  const procedureDurationMs = getProcedureDurationMs();
+  const closedStartAt = currentTrainArrivalAt ? currentTrainArrivalAt + getClosedStartOffsetMs() : 0;
+  const closedUntil = currentTrainArrivalAt ? currentTrainArrivalAt + getRaisingStartOffsetMs() : 0;
+  const redUntil = currentTrainArrivalAt ? currentTrainArrivalAt + procedureDurationMs : 0;
+  const phase = getPhaseAt(now, currentTrainArrivalAt);
+  const activeArrival = currentTrainArrivalAt || nextTrainArrivalAt;
+  const untilArrival = activeArrival ? activeArrival - now : 0;
 
   return {
-    nextArrivalAt: nextTrainSpawnAt,
-    currentArrivalAt: currentTrainSpawnAt,
-    currentActiveUntil: currentTrainActiveUntil,
-    trainLeadMs,
-    trainActiveMs,
-    untilArrival: untilSpawn,
-    isCrossing: !!currentTrainActiveUntil,
+    nextArrivalAt: nextTrainArrivalAt,
+    currentArrivalAt: currentTrainArrivalAt,
+    currentActiveUntil: redUntil,
+    closedStartAt,
+    closedUntil,
+    redUntil,
+    trainIntervalMs,
+    trainWarningMs,
+    trainLoweringMs,
+    trainClosedMs,
+    trainRaisingMs,
+    procedureDurationMs,
+    untilArrival,
+    phase,
+    isProcedureActive: !!currentTrainArrivalAt,
+    isCrossing: phase === 'closed',
     cabinCount: TRAIN_CABIN_COUNT,
     cabinSpacing: TRAIN_CABIN_SPACING,
     cabinLength: TRAIN_CABIN_LENGTH,
@@ -128,7 +167,8 @@ export function getTrainScheduleState(now = Date.now()) {
 export function getTrainRenderState(now = Date.now()) {
   tickTrainSchedule(now);
 
-  if (!currentTrainSpawnAt) {
+  const phase = getPhaseAt(now, currentTrainArrivalAt);
+  if (phase !== 'closed') {
     return {
       visible: false,
       x: 0,
@@ -138,18 +178,19 @@ export function getTrainRenderState(now = Date.now()) {
       cabinCount: TRAIN_CABIN_COUNT,
       cabinSpacing: TRAIN_CABIN_SPACING,
       cabinLength: TRAIN_CABIN_LENGTH,
-      renderTotalMs: trainActiveMs,
+      renderTotalMs: trainClosedMs,
     };
   }
 
-  const elapsed = now - currentTrainSpawnAt;
-  const progress = Math.min(1, Math.max(0, elapsed / Math.max(1, trainActiveMs)));
+  const closedStartAt = currentTrainArrivalAt + getClosedStartOffsetMs();
+  const elapsed = now - closedStartAt;
+  const progress = Math.min(1, Math.max(0, elapsed / Math.max(1, trainClosedMs)));
   const trainPath = buildExtendedTrainPath();
   const noseDist = trainPath.totalLength * progress;
   const nose = posAt(trainPath, noseDist);
 
   return {
-    visible: now <= currentTrainActiveUntil,
+    visible: true,
     x: nose.x,
     y: nose.y,
     angle: nose.angle,
@@ -157,6 +198,6 @@ export function getTrainRenderState(now = Date.now()) {
     cabinCount: TRAIN_CABIN_COUNT,
     cabinSpacing: TRAIN_CABIN_SPACING,
     cabinLength: TRAIN_CABIN_LENGTH,
-    renderTotalMs: trainActiveMs,
+    renderTotalMs: trainClosedMs,
   };
 }

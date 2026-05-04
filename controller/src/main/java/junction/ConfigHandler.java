@@ -64,6 +64,12 @@ public class ConfigHandler implements HttpHandler {
                 long orange = Long.parseLong(params.getOrDefault("orangeMs", "3000"));
                 long minRed = Long.parseLong(params.getOrDefault("minRedMs", "4000"));
                 service.setTimingConfig(minGreen, maxGreen, orange, minRed);
+
+                long trainWarning = Long.parseLong(params.getOrDefault("trainWarningMs", "5000"));
+                long trainLowering = Long.parseLong(params.getOrDefault("trainLoweringMs", "15000"));
+                long trainClosed = Long.parseLong(params.getOrDefault("trainClosedMs", "30000"));
+                long trainRaising = Long.parseLong(params.getOrDefault("trainRaisingMs", "15000"));
+                service.setTrainTimingConfig(trainWarning, trainLowering, trainClosed, trainRaising);
             } catch (NumberFormatException e) {
                 // ignore bad input
             }
@@ -86,14 +92,19 @@ public class ConfigHandler implements HttpHandler {
               <label>Max Green (ms): <input name="maxGreenMs" value="%d" type="number"></label><br><br>
               <label>Orange (ms): <input name="orangeMs" value="%d" type="number"></label><br><br>
               <label>Min Red (ms): <input name="minRedMs" value="%d" type="number"></label><br><br>
-              <p><small>Train timings currently use controller defaults (lead %d ms, active %d ms).</small></p>
+              <h3>Train Timing Settings</h3>
+              <label>Train warning duration (ms): <input name="trainWarningMs" value="%d" type="number"></label><br><br>
+              <label>Train lowering duration (ms): <input name="trainLoweringMs" value="%d" type="number"></label><br><br>
+              <label>Train closed duration (ms): <input name="trainClosedMs" value="%d" type="number"></label><br><br>
+              <label>Train raising duration (ms): <input name="trainRaisingMs" value="%d" type="number"></label><br><br>
               <button type="submit">Save</button>
             </form>
             </body></html>
             """.formatted(localIps.stream().map(ip -> "<li>http://" + ip + ":" + port + "</li>").reduce("", (a, b) -> a + b),
                 cfg.get("minGreenMs"), cfg.get("maxGreenMs"),
                 cfg.get("orangeMs"), cfg.get("minRedMs"),
-                cfg.get("trainLeadMs"), cfg.get("trainActiveMs"));
+                cfg.get("trainWarningMs"), cfg.get("trainLoweringMs"),
+                cfg.get("trainClosedMs"), cfg.get("trainRaisingMs"));
 
         exchange.getResponseHeaders().set("Content-Type", "text/html");
         byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
