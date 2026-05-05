@@ -5,7 +5,6 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Conflict & Priority Handler
- *
  * Responsibilities:
  * - Encapsulate the junction conflict matrix (delegates to ConflictMatrix)
  * - Provide priority ordering for different entity types (train, bus, bicycle/pedestrian, car)
@@ -26,10 +25,10 @@ public class ConflictHandler {
     private final Set<String> trainConflictingSignals;
 
     public ConflictHandler() {
-        // Compute which signals conflict with the SP (railway) signal using the matrix API
+        // Compute which signals conflict with the sb (railway) signal using the matrix API
         Set<String> set = new HashSet<>();
         for (String s : matrix.getAllSignals()) {
-            if (matrix.hasConflict("SP", s)) set.add(s);
+            if (hasConflict("sb", s)) set.add(s);
         }
         trainConflictingSignals = Collections.unmodifiableSet(set);
     }
@@ -63,7 +62,12 @@ public class ConflictHandler {
         long s = blockStart.get();
         long e = blockEnd.get();
         if (s == 0 && e == 0) return false;
-        if (currentTimestamp < s || currentTimestamp >= e) return false;
+
+        boolean inWindow = currentTimestamp >= s && currentTimestamp <= e + TRAIN_PREPARE_MS;
+        if (!inWindow) return false;
+        // sb itself should also be blocked during train window
+        if ("sb".equals(signal)) return true;
+
         return trainConflictingSignals.contains(signal);
     }
 
@@ -81,22 +85,17 @@ public class ConflictHandler {
 
     /**
      * Determine priority based on signal id.
-     * - "SP" is treated as TRAIN
+     * - "sb" is treated as TRAIN
      * - "42" is treated as BUS
      * - A configured set of signals is treated as bicycle/pedestrian
      * - All remaining known signals are treated as CAR
      * - Unknown IDs -> UNKNOWN
      */
-    private static final Set<String> BICYCLE_PEDESTRIAN_SIGNALS = Collections.unmodifiableSet(new HashSet<>(Arrays.asList(
-        "22","26.1","28.1","86.1","88.1",
-        "31.1","31.2","32.1","32.2",
-        "35.1","35.2","36.1","36.2",
-        "37.1","37.2","38.1","38.2"
-    )));
+    private static final Set<String> BICYCLE_PEDESTRIAN_SIGNALS = Set.of("22", "26.1", "28.1", "86.1", "88.1", "31.1", "31.2", "32.1", "32.2", "35.1", "35.2", "36.1", "36.2", "37.1", "37.2", "38.1", "38.2");
 
     public Priority priorityForSignal(String signalId) {
         if (signalId == null) return Priority.UNKNOWN;
-        if ("SP".equals(signalId)) return Priority.TRAIN;
+        if ("sb1".equals(signalId)) return Priority.TRAIN;
         if ("42".equals(signalId)) return Priority.BUS;
         if (BICYCLE_PEDESTRIAN_SIGNALS.contains(signalId)) return Priority.BICYCLE_PEDESTRIAN;
         // Known but uncategorized signals default to CAR
@@ -112,29 +111,35 @@ public class ConflictHandler {
      * - Secondary: earlier triggeredTimestamp (longer waiting) wins
      */
     public Comparator<WaitingRequest> waitingComparator() {
-        return (a, b) -> {
-            int p = Integer.compare(a.priority.level(), b.priority.level());
-            if (p != 0) return p;
-            return Long.compare(a.triggeredTimestamp, b.triggeredTimestamp);
-        };
+        return Comparator.comparingInt((WaitingRequest a) -> a.priority.level()).thenComparingLong(a -> a.triggeredTimestamp);
     }
 
     /**
      * Small holder representing a waiting request for a signal.
      */
-    public static class WaitingRequest {
-        public final String signalId;
-        public final Priority priority;
-        public final long triggeredTimestamp;
-        public WaitingRequest(String signalId, Priority priority, long triggeredTimestamp) {
-            this.signalId = signalId; this.priority = priority; this.triggeredTimestamp = triggeredTimestamp;
-        }
+    public record WaitingRequest(String signalId, Priority priority, long triggeredTimestamp) {
     }
 
     // --- Helpers delegating to underlying matrix ---
     public boolean canTurnGreen(String candidateSignal, Set<String> currentlyGreen, long currentTimestamp) {
         if (isBlockedByTrain(candidateSignal, currentTimestamp)) return false;
-        return matrix.canTurnGreen(candidateSignal, currentlyGreen);
+        if ("sb".equals(candidateSignal)) return true;
+        if (currentlyGreen.contains("sb")) {
+            if (currentlyGreen.contains(candidateSignal)) return false;
+        }
+
+        for (String green : currentlyGreen) {
+            if ("sb".equals(green)) continue;
+            if (hasConflict(candidateSignal, green)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public boolean hasConflict(String a, String b) {
+        return matrix.hasConflict(a, b);
     }
 
     public String[] getAllSignals() { return matrix.getAllSignals(); }

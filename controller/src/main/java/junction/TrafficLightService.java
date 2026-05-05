@@ -5,9 +5,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Traffic light controller using conflict matrix.
- * 
  * States: 0 = red, 1 = orange, 2 = green
- * 
  * MAX_GREEN: once a light turns green, it can stay green for at most MAX_GREEN_MS.
  * The timer is based on when the light TRANSITIONED to green, not on entity presence.
  * Quick entity flickers (car leaving detection zone momentarily) do NOT reset the timer.
@@ -15,14 +13,15 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class TrafficLightService {
 
-    private long minGreenMs = 6000;
+    private long minGreenMs = 2000;
     private long maxGreenMs = 30000;
-    private long orangeMs = 3000;
-    private long minRedMs = 4000;
+    private long orangeMs = 1500;
+    private long minRedMs = 3500;
+    private static final long MAX_RED_MS = 120_000L; // 2 minutes
 
     private final ConflictHandler conflictHandler;
 
-    private final Map<String, Integer> states = new ConcurrentHashMap<>();
+    private final Map<String, Integer> states = new ConcurrentHashMap<>(); // signal, state
     private final Map<String, Long> stateChangeTime = new ConcurrentHashMap<>();
     private final Map<String, Long> greenSince = new ConcurrentHashMap<>();
     private final Map<String, Boolean> entityPresence = new ConcurrentHashMap<>();
@@ -50,6 +49,19 @@ public class TrafficLightService {
             }
         }
 
+        // Phase X: ensure sb is always green (unless transitioning)
+        String SB = "sb";
+         if (conflictHandler.isBlockedByTrain(SB, currentTimestamp)) {
+             if (states.get(SB) != 0) {
+                 setState(SB, 0, currentTimestamp);
+             }
+         } else {
+             if (states.get(SB) != 2) {
+                 setState(SB, 2, currentTimestamp);
+                 greenSince.put(SB, currentTimestamp);
+             }
+         }
+
         // Phase 1: orange -> red
         for (String signal : conflictHandler.getAllSignals()) {
             int state = states.getOrDefault(signal, 0);
@@ -61,6 +73,8 @@ public class TrafficLightService {
 
         // Phase 2: green -> orange (max green OR no entity + min green)
         for (String signal : conflictHandler.getAllSignals()) {
+            if ("sb".equals(signal)) continue;
+
             int state = states.getOrDefault(signal, 0);
             if (state != 2) continue;
 
@@ -88,8 +102,16 @@ public class TrafficLightService {
             if (hasEntity && state == 0) {
                 long changedAt = stateChangeTime.getOrDefault(signal, 0L);
                 if ((currentTimestamp - changedAt) >= minRedMs) {
-                    ConflictHandler.Priority pr = conflictHandler.priorityForSignal(signal);
-                    waiting.add(new ConflictHandler.WaitingRequest(signal, pr, triggeredTimestamps.getOrDefault(signal, 0L)));
+                    long triggered = triggeredTimestamps.getOrDefault(signal, 0L);
+                    long waitTime = currentTimestamp - triggered;
+
+                    boolean isStarving = waitTime >= MAX_RED_MS;
+
+                    ConflictHandler.Priority pr = isStarving
+                            ? ConflictHandler.Priority.TRAIN
+                            : conflictHandler.priorityForSignal(signal);
+
+                    waiting.add(new ConflictHandler.WaitingRequest(signal, pr, triggered));
                 }
             }
         }
@@ -97,8 +119,28 @@ public class TrafficLightService {
         waiting.sort(conflictHandler.waitingComparator());
 
         for (ConflictHandler.WaitingRequest wr : waiting) {
-            String signal = wr.signalId;
-            if (conflictHandler.canTurnGreen(signal, occupied, currentTimestamp)) {
+            String signal = wr.signalId();
+
+            long triggered = triggeredTimestamps.getOrDefault(signal, 0L);
+            long waitTime = currentTimestamp - triggered;
+            boolean isStarving = waitTime >= MAX_RED_MS;
+
+            if (conflictHandler.isBlockedByTrain(signal, currentTimestamp)) {
+                continue;
+            }
+
+            if (isStarving) {
+                for (String other : new HashSet<>(states.keySet())) {
+                    if (conflictHandler.hasConflict(other, signal)) {
+                        int otherState = states.getOrDefault(other, 0);
+                        if (otherState == 2) { // Green
+                            setState(other, 1, currentTimestamp); // > Orange
+                        }
+                    }
+                }
+            }
+
+            if (isStarving || conflictHandler.canTurnGreen(signal, occupied, currentTimestamp)) {
                 setState(signal, 2, currentTimestamp);
                 greenSince.put(signal, currentTimestamp);
                 occupied.add(signal);
@@ -118,7 +160,11 @@ public class TrafficLightService {
     private Set<String> getOccupiedSignals() {
         Set<String> occ = new HashSet<>();
         for (Map.Entry<String, Integer> e : states.entrySet()) {
-            if (e.getValue() == 2 || e.getValue() == 1) occ.add(e.getKey());
+            int state = e.getValue();
+
+            if (state == 2 || state == 4 || state == 1) {
+                occ.add(e.getKey());
+            }
         }
         return occ;
     }
@@ -149,5 +195,9 @@ public class TrafficLightService {
         public LightUpdate(String id, boolean hasEntity, long triggeredTimestamp) {
             this.id = id; this.hasEntity = hasEntity; this.triggeredTimestamp = triggeredTimestamp;
         }
+    }
+
+    private boolean isGreen(String signal, int state) {
+        return state == 2 || ("42".equals(signal) && state == 4);
     }
 }
