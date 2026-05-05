@@ -78,14 +78,14 @@ public class ConflictMatrix {
     /**
      * Given a set of currently green signals, check if adding candidateSignal would cause a conflict.
      */
-    public boolean canTurnGreen(String candidateSignal, Set<String> currentlyGreen) {
-        for (String green : currentlyGreen) {
-            if (hasConflict(candidateSignal, green)) {
-                return false;
-            }
-        }
-        return true;
-    }
+//    public boolean canTurnGreen(String candidateSignal, Set<String> currentlyGreen) {
+//        for (String green : currentlyGreen) {
+//            if (hasConflict(candidateSignal, green)) {
+//                return false;
+//            }
+//        }
+//        return true;
+//    }
 
     public String[] getAllSignals() {
         return ALL_SIGNALS.clone();
