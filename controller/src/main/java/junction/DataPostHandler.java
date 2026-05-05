@@ -42,6 +42,12 @@ public class DataPostHandler implements HttpHandler {
             long currentTimestamp = request.has("currentTimestamp")
                     ? request.get("currentTimestamp").getAsLong() : System.currentTimeMillis();
 
+            // register train arrival if provided (epoch ms)
+            if (request.has("trainArrivalTimestamp")) {
+                long trainTs = request.get("trainArrivalTimestamp").getAsLong();
+                service.registerTrainArrival(trainTs);
+            }
+
             List<TrafficLightService.LightUpdate> updates = new ArrayList<>();
             if (request.has("trafficLights")) {
                 JsonArray arr = request.getAsJsonArray("trafficLights");
@@ -59,7 +65,14 @@ public class DataPostHandler implements HttpHandler {
             JsonObject response = new JsonObject();
             JsonObject lightsObj = new JsonObject();
             for (Map.Entry<String, Integer> entry : newStates.entrySet()) {
-                lightsObj.addProperty(entry.getKey(), entry.getValue());
+                String id = entry.getKey();
+                int state = entry.getValue();
+
+                if ("42".equals(id) && state == 2) {
+                    state = 4;
+                }
+
+                lightsObj.addProperty(id, state);
             }
             response.add("trafficLights", lightsObj);
 
