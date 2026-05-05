@@ -2,71 +2,81 @@
  * Entity detection for traffic lights.
  *
  * Determines which lights have an entity present based on:
- * - Car positions within detection zones (for car lights)
- * - Manual toggle state (for bus/bicycle/pedestrian lights)
+ * - Vehicle positions within detection zones (for path-based traffic lights)
+ * - One-shot manual requests (for bus/bicycle/pedestrian request buttons)
  */
 
-import { getCars, CAR_LENGTH } from './carManager.js';
-import { RAW_PATHS, MANUAL_LIGHTS } from './paths.js';
+import { getCars, CAR_LENGTH, BUS_LENGTH } from './carManager.js';
+import { MANUAL_LIGHTS, getSignalIds } from './paths.js';
 
-const manualEntities = {};
+const manualRequests = {};
 
-// Initialize manual entity states
 for (const id of Object.keys(MANUAL_LIGHTS)) {
-  manualEntities[id] = false;
+  manualRequests[id] = {
+    pending: false,
+    servedThisGreen: false,
+    lastRequestedAt: 0,
+  };
 }
 
-/**
- * Toggle entity presence for a manual light.
- *
- * @param {string} id - light ID
- */
-export function toggleManualEntity(id) {
-  if (id in manualEntities) {
-    manualEntities[id] = !manualEntities[id];
+export function requestManualEntity(id) {
+  if (!(id in manualRequests)) return;
+  const state = manualRequests[id];
+  if (state.pending) return;
+  state.pending = true;
+  state.servedThisGreen = false;
+  state.lastRequestedAt = Date.now();
+}
+
+export function getManualEntity(id) {
+  return manualRequests[id]?.pending || false;
+}
+
+export function getManualRequestState(id) {
+  return manualRequests[id] || { pending: false, servedThisGreen: false, lastRequestedAt: 0 };
+}
+
+export function updateManualRequestStates(lightStates) {
+  for (const [id, state] of Object.entries(manualRequests)) {
+    const ls = lightStates[id] || 0;
+
+    if (!state.pending) {
+      state.servedThisGreen = false;
+      continue;
+    }
+
+    if (ls === 2 && Date.now() - state.lastRequestedAt > 500) {
+      state.servedThisGreen = true;
+      state.pending = false;
+    }
   }
 }
 
 /**
- * Get current manual entity state for a light.
+ * Compute entity presence for all controller-facing traffic lights.
  *
- * @param {string} id
- * @returns {boolean}
- */
-export function getManualEntity(id) {
-  return manualEntities[id] || false;
-}
-
-/**
- * Compute entity presence for all traffic lights.
- *
- * For car lights: checks if any car on that path is within the detection zone
- * (between detectDist and stopDist + car length).
- *
- * For manual lights: returns the toggled state.
- *
- * @param {Object} paths - map of computed paths
- * @returns {Object} map of light ID -> boolean
+ * Path-based lights are aggregated per parent signal ID so multiple frontend-only
+ * route variants still map back to one controller signal.
  */
 export function computeEntities(paths) {
   const entities = {};
   const cars = getCars();
 
-  for (const id of Object.keys(RAW_PATHS)) {
-    const p = paths[id];
-    let hasEntity = false;
-    for (const car of cars) {
-      if (!car.alive || car.pathId !== id) continue;
-      if (car.dist >= p.detectDist && car.dist <= p.stopDist + CAR_LENGTH) {
-        hasEntity = true;
-        break;
-      }
+  for (const signalId of getSignalIds()) {
+    entities[signalId] = false;
+  }
+
+  for (const car of cars) {
+    if (!car.alive) continue;
+    const p = paths[car.variantKey] || car.path;
+    const vehicleLength = car.vehicleType === 'bus' ? BUS_LENGTH : CAR_LENGTH;
+    if (car.dist >= p.detectDist && car.dist <= p.stopDist + vehicleLength) {
+      entities[car.signalId] = true;
     }
-    entities[id] = hasEntity;
   }
 
   for (const id of Object.keys(MANUAL_LIGHTS)) {
-    entities[id] = manualEntities[id] || false;
+    entities[id] = (entities[id] || false) || manualRequests[id]?.pending || false;
   }
 
   return entities;

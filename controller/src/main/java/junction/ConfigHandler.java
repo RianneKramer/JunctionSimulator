@@ -86,12 +86,14 @@ public class ConfigHandler implements HttpHandler {
               <label>Max Green (ms): <input name="maxGreenMs" value="%d" type="number"></label><br><br>
               <label>Orange (ms): <input name="orangeMs" value="%d" type="number"></label><br><br>
               <label>Min Red (ms): <input name="minRedMs" value="%d" type="number"></label><br><br>
+              <p><small>Train timings currently use controller defaults (lead %d ms, active %d ms).</small></p>
               <button type="submit">Save</button>
             </form>
             </body></html>
             """.formatted(localIps.stream().map(ip -> "<li>http://" + ip + ":" + port + "</li>").reduce("", (a, b) -> a + b),
                 cfg.get("minGreenMs"), cfg.get("maxGreenMs"),
-                cfg.get("orangeMs"), cfg.get("minRedMs"));
+                cfg.get("orangeMs"), cfg.get("minRedMs"),
+                cfg.get("trainLeadMs"), cfg.get("trainActiveMs"));
 
         exchange.getResponseHeaders().set("Content-Type", "text/html");
         byte[] bytes = html.getBytes(StandardCharsets.UTF_8);
