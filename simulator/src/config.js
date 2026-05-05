@@ -5,52 +5,93 @@
  * Provides a way to update the controller URL at runtime.
  */
 
-const config = {
+const DEFAULT_CONFIG = {
   controllerUrl: 'http://localhost:8080',
   endpoint: '/data',
   postInterval: 3000,
   spawnInterval: 6000,
+  trainLeadMs: 5000,
+  trainActiveMs: 6000,
 };
 
-/**
- * Load configuration from the server.
- * Falls back to defaults if the server is unreachable.
- */
-export async function loadConfig() {
+const CONFIG_RETRY_ATTEMPTS = 3;
+const CONFIG_TIMEOUT_MS = 2500;
+
+const config = { ...DEFAULT_CONFIG };
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeControllerUrl(fullUrl) {
+  const parsed = new URL(fullUrl);
+  return parsed.origin;
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = CONFIG_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
   try {
-    const resp = await fetch('/api/config');
-    const data = await resp.json();
-    if (data.controllerUrl) config.controllerUrl = data.controllerUrl;
-    if (data.endpoint) config.endpoint = data.endpoint;
-    if (data.postInterval) config.postInterval = data.postInterval;
-    if (data.spawnInterval) config.spawnInterval = data.spawnInterval;
-  } catch (e) {
-    // use defaults
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+export async function loadConfig() {
+  for (let attempt = 1; attempt <= CONFIG_RETRY_ATTEMPTS; attempt++) {
+    try {
+      const resp = await fetchWithTimeout('/api/config');
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+      const data = await resp.json();
+      if (data.controllerUrl) {
+        config.controllerUrl = normalizeControllerUrl(data.controllerUrl);
+      }
+      config.endpoint = '/data';
+
+      const numericKeys = ['postInterval', 'spawnInterval', 'trainLeadMs', 'trainActiveMs'];
+      for (const key of numericKeys) {
+        const value = Number(data[key]);
+        if (Number.isFinite(value) && value > 0) {
+          config[key] = value;
+        }
+      }
+
+      return config;
+    } catch (e) {
+      if (attempt === CONFIG_RETRY_ATTEMPTS) {
+        Object.assign(config, DEFAULT_CONFIG);
+        return config;
+      }
+      await sleep(300 * attempt);
+    }
+  }
+
   return config;
 }
 
-/**
- * Update the controller URL and persist to server.
- *
- * @param {string} fullUrl - e.g. "http://10.0.0.5:8080/data"
- */
 export async function setControllerUrl(fullUrl) {
-  const baseUrl = fullUrl.replace(/\/data$/, '');
+  const baseUrl = normalizeControllerUrl(fullUrl.replace(/\/data\/?$/, ''));
   config.controllerUrl = baseUrl;
   config.endpoint = '/data';
 
   try {
-    await fetch('/api/config', {
+    const resp = await fetchWithTimeout('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         controllerUrl: config.controllerUrl,
-        endpoint: config.endpoint,
       }),
     });
+
+    return resp.ok;
   } catch (e) {
-    // non-critical
+    return false;
   }
 }
 

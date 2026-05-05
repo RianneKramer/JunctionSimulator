@@ -60,7 +60,7 @@ public class DataPostHandler implements HttpHandler {
                 }
             }
 
-            Map<String, Integer> newStates = service.processUpdate(updates, currentTimestamp);
+            Map<String, Integer> newStates = service.processUpdate(updates, currentTimestamp, trainArrivalTimestamp);
 
             JsonObject response = new JsonObject();
             JsonObject lightsObj = new JsonObject();

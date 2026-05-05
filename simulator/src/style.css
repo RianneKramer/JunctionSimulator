@@ -167,7 +167,7 @@ body {
   cursor: pointer;
 }
 
-.entity-btn.on {
+.entity-btn.pending {
   background: #e94560;
   border-color: #e94560;
   color: #fff;
@@ -178,6 +178,19 @@ body {
   color: #666;
   min-width: 18px;
   text-align: right;
+}
+
+.variant-count {
+  font-size: 10px;
+  color: #666;
+  min-width: 24px;
+  text-align: right;
+}
+
+.train-status {
+  font-size: 11px;
+  color: #a9c3ff;
+  margin: 4px 6px 8px;
 }
 
 .stats {
