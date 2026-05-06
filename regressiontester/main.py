@@ -14,15 +14,15 @@ def compare(actual, expected, path=""):
         if not isinstance(actual, dict):
             return [f"{path}: expected object"]
 
-        for k in expected:
-            if k not in actual:
-                errors.append(f"Missing key: {path}.{k}")
+        for variable in expected:
+            if variable not in actual:
+                errors.append(f"Missing key: {path}.{variable}")
             else:
-                errors += compare(actual[k], expected[k], f"{path}.{k}")
+                errors += compare(actual[variable], expected[variable], f"{path}.{variable}")
 
-        for k in actual:
-            if k not in expected:
-                errors.append(f"Unexpected key: {path}.{k}")
+        for variable in actual:
+            if variable not in expected:
+                errors.append(f"Unexpected key: {path}.{variable}")
 
     elif isinstance(expected, list):
         if not isinstance(actual, list):
