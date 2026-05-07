@@ -18,8 +18,8 @@ export default class ControllerClient {
       currentTimestamp: Date.now(),
       trafficLights: trafficLights
     };
-    //http://localhost:8000/capture
-    fetch("https://controller.jelte.frl/api", {
+
+    fetch("http://localhost:8000/capture", {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -28,7 +28,7 @@ export default class ControllerClient {
     });
 
     console.log('[Simulator] POST to controller:', JSON.stringify(payload));
-
+    
     try {
       const response = await fetch(this.url, {
         method: 'POST',
