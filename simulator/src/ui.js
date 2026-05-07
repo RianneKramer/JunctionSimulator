@@ -129,7 +129,7 @@ export function updatePanel(lightStates, connected) {
     } else if (trainState.phase === 'raising') {
       trainStatus.textContent = `Barriers raising | clears in ${secondsUntil(trainState.redUntil, now)}s`;
     } else if (trainState.nextArrivalAt) {
-      trainStatus.textContent = `Next train spawns in ${Math.max(0, Math.ceil((trainState.nextArrivalAt - Date.now()) / 1000))}s`;
+      trainStatus.textContent = `Next train arrives in ${Math.max(0, Math.ceil((trainState.nextArrivalAt - Date.now()) / 1000))}s`;
     } else {
       trainStatus.textContent = 'No train scheduled';
     }

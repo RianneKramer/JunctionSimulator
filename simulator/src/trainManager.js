@@ -1,9 +1,9 @@
 /**
  * Train scheduling and animation state.
  *
- * Protocol constraint: trainArrivalTimestamp is the start of the rail crossing
- * procedure. From that moment traffic must stop. The simulator keeps the
- * detailed phase timing local; only the timestamp is sent to the controller.
+ * Protocol constraint: trainArrivalTimestamp is t=0: the moment the train
+ * crossing is closed and the train starts passing. Warning and lowering start
+ * before that timestamp; only the t=0 timestamp is sent to the controller.
  */
 
 import { RAIL_LAYOUT } from './paths.js';
@@ -25,21 +25,33 @@ function getProcedureDurationMs() {
   return trainWarningMs + trainLoweringMs + trainClosedMs + trainRaisingMs;
 }
 
-function getClosedStartOffsetMs() {
+function getPreArrivalDurationMs() {
   return trainWarningMs + trainLoweringMs;
 }
 
+function getProcedureStartAt(arrivalAt) {
+  return arrivalAt - getPreArrivalDurationMs();
+}
+
+function getProcedureEndAt(arrivalAt) {
+  return arrivalAt + trainClosedMs + trainRaisingMs;
+}
+
+function getClosedStartOffsetMs() {
+  return 0;
+}
+
 function getRaisingStartOffsetMs() {
-  return getClosedStartOffsetMs() + trainClosedMs;
+  return trainClosedMs;
 }
 
 function getPhaseAt(now, arrivalAt) {
   if (!arrivalAt) return 'waiting';
-  const elapsed = now - arrivalAt;
+  const elapsed = now - getProcedureStartAt(arrivalAt);
   if (elapsed < 0) return 'waiting';
   if (elapsed < trainWarningMs) return 'warning';
-  if (elapsed < getClosedStartOffsetMs()) return 'lowering';
-  if (elapsed < getRaisingStartOffsetMs()) return 'closed';
+  if (elapsed < getPreArrivalDurationMs()) return 'lowering';
+  if (elapsed < getPreArrivalDurationMs() + trainClosedMs) return 'closed';
   if (elapsed < getProcedureDurationMs()) return 'raising';
   return 'waiting';
 }
@@ -110,12 +122,12 @@ export function triggerTrainSoon() {
 export function tickTrainSchedule(now = Date.now()) {
   ensureScheduled(now);
 
-  if (!currentTrainArrivalAt && nextTrainArrivalAt && now >= nextTrainArrivalAt) {
+  if (!currentTrainArrivalAt && nextTrainArrivalAt && now >= getProcedureStartAt(nextTrainArrivalAt)) {
     currentTrainArrivalAt = nextTrainArrivalAt;
     nextTrainArrivalAt = 0;
   }
 
-  if (currentTrainArrivalAt && now >= currentTrainArrivalAt + getProcedureDurationMs()) {
+  if (currentTrainArrivalAt && now >= getProcedureEndAt(currentTrainArrivalAt)) {
     const previousArrivalAt = currentTrainArrivalAt;
     currentTrainArrivalAt = 0;
     nextTrainArrivalAt = previousArrivalAt + trainIntervalMs;
@@ -136,7 +148,8 @@ export function getTrainScheduleState(now = Date.now()) {
   const procedureDurationMs = getProcedureDurationMs();
   const closedStartAt = currentTrainArrivalAt ? currentTrainArrivalAt + getClosedStartOffsetMs() : 0;
   const closedUntil = currentTrainArrivalAt ? currentTrainArrivalAt + getRaisingStartOffsetMs() : 0;
-  const redUntil = currentTrainArrivalAt ? currentTrainArrivalAt + procedureDurationMs : 0;
+  const procedureStartAt = currentTrainArrivalAt ? getProcedureStartAt(currentTrainArrivalAt) : 0;
+  const redUntil = currentTrainArrivalAt ? getProcedureEndAt(currentTrainArrivalAt) : 0;
   const phase = getPhaseAt(now, currentTrainArrivalAt);
   const activeArrival = currentTrainArrivalAt || nextTrainArrivalAt;
   const untilArrival = activeArrival ? activeArrival - now : 0;
@@ -144,6 +157,7 @@ export function getTrainScheduleState(now = Date.now()) {
   return {
     nextArrivalAt: nextTrainArrivalAt,
     currentArrivalAt: currentTrainArrivalAt,
+    procedureStartAt,
     currentActiveUntil: redUntil,
     closedStartAt,
     closedUntil,

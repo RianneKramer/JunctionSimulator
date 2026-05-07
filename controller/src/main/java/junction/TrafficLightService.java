@@ -69,8 +69,9 @@ public class TrafficLightService {
             return false;
         }
 
-        long redUntil = trainArrivalTimestamp + getTrainProcedureDurationMs();
-        boolean active = currentTimestamp >= trainArrivalTimestamp && currentTimestamp < redUntil;
+        long activeFrom = trainArrivalTimestamp - getTrainPreArrivalDurationMs();
+        long redUntil = trainArrivalTimestamp + trainClosedMs + trainRaisingMs;
+        boolean active = currentTimestamp >= activeFrom && currentTimestamp < redUntil;
 
         entityPresence.put(TRAIN_SIGNAL_ID, active);
         triggeredTimestamps.put(TRAIN_SIGNAL_ID, trainArrivalTimestamp);
@@ -92,8 +93,8 @@ public class TrafficLightService {
         return true;
     }
 
-    private long getTrainProcedureDurationMs() {
-        return trainWarningMs + trainLoweringMs + trainClosedMs + trainRaisingMs;
+    private long getTrainPreArrivalDurationMs() {
+        return trainWarningMs + trainLoweringMs;
     }
 
     private void transitionOrangeToRed(long currentTimestamp) {
