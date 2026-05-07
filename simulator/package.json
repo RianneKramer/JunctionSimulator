@@ -3,9 +3,19 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "concurrently \"node server.js\" \"npx vite\"",
+    "start:bun": "concurrently \"bun server.js\" \"bunx vite\"",
+    "dev": "npx vite",
+    "dev:bun": "bunx vite",
+    "server": "node server.js",
+    "server:bun": "bun server.js"
   },
   "dependencies": {
+    "cors": "^2.8.6",
     "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0",
+    "concurrently": "^8.2.2"
   }
 }
