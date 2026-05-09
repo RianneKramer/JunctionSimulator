@@ -93,11 +93,15 @@ public class ConflictHandler {
      */
     private static final Set<String> BICYCLE_PEDESTRIAN_SIGNALS = Set.of("22", "26.1", "28.1", "86.1", "88.1", "31.1", "31.2", "32.1", "32.2", "35.1", "35.2", "36.1", "36.2", "37.1", "37.2", "38.1", "38.2");
 
+    public boolean isBicycleOrPedestrianSignal(String signalId) {
+        return BICYCLE_PEDESTRIAN_SIGNALS.contains(signalId);
+    }
+
     public Priority priorityForSignal(String signalId) {
         if (signalId == null) return Priority.UNKNOWN;
         if ("sb1".equals(signalId)) return Priority.TRAIN;
         if ("42".equals(signalId)) return Priority.BUS;
-        if (BICYCLE_PEDESTRIAN_SIGNALS.contains(signalId)) return Priority.BICYCLE_PEDESTRIAN;
+        if (isBicycleOrPedestrianSignal(signalId)) return Priority.BICYCLE_PEDESTRIAN;
         // Known but uncategorized signals default to CAR
         for (String s : matrix.getAllSignals()) {
             if (s.equals(signalId)) return Priority.CAR;

@@ -15,9 +15,18 @@ public class TrafficLightService {
 
     private long minGreenMs = 2000;
     private long maxGreenMs = 30000;
-    private long orangeMs = 1500;
+    private long orangeMs = 3500;
     private long minRedMs = 3500;
     private static final long MAX_RED_MS = 120_000L; // 2 minutes
+    private static final long BICYCLE_PEDESTRIAN_GREEN_MS = 6_000L;
+    private static final Map<String, String> PEDESTRIAN_SEQUENCE_PAIRS = Map.of(
+            "31.1", "31.2",
+            "32.1", "32.2",
+            "35.1", "35.2",
+            "36.1", "36.2",
+            "37.1", "37.2",
+            "38.1", "38.2"
+    );
 
     private final ConflictHandler conflictHandler;
 
@@ -80,14 +89,16 @@ public class TrafficLightService {
 
             long gSince = greenSince.getOrDefault(signal, 0L);
             boolean hasEntity = entityPresence.getOrDefault(signal, false);
+            long effectiveMinGreenMs = minGreenMsFor(signal);
+            long effectiveMaxGreenMs = maxGreenMsFor(signal);
 
-            if ((currentTimestamp - gSince) >= maxGreenMs) {
+            if ((currentTimestamp - gSince) >= effectiveMaxGreenMs) {
                 System.out.println("[Controller] " + signal + " MAX GREEN reached, forcing orange");
                 setState(signal, 1, currentTimestamp);
                 continue;
             }
 
-            if (!hasEntity && (currentTimestamp - gSince) >= minGreenMs) {
+            if (!hasEntity && (currentTimestamp - gSince) >= effectiveMinGreenMs) {
                 setState(signal, 1, currentTimestamp);
             }
         }
@@ -96,23 +107,12 @@ public class TrafficLightService {
         Set<String> occupied = getOccupiedSignals();
 
         List<ConflictHandler.WaitingRequest> waiting = new ArrayList<>();
+        Set<String> waitingSignals = new HashSet<>();
         for (String signal : conflictHandler.getAllSignals()) {
             boolean hasEntity = entityPresence.getOrDefault(signal, false);
             int state = states.getOrDefault(signal, 0);
             if (hasEntity && state == 0) {
-                long changedAt = stateChangeTime.getOrDefault(signal, 0L);
-                if ((currentTimestamp - changedAt) >= minRedMs) {
-                    long triggered = triggeredTimestamps.getOrDefault(signal, 0L);
-                    long waitTime = currentTimestamp - triggered;
-
-                    boolean isStarving = waitTime >= MAX_RED_MS;
-
-                    ConflictHandler.Priority pr = isStarving
-                            ? ConflictHandler.Priority.TRAIN
-                            : conflictHandler.priorityForSignal(signal);
-
-                    waiting.add(new ConflictHandler.WaitingRequest(signal, pr, triggered));
-                }
+                addWaitingRequest(waiting, waitingSignals, signal, signal, currentTimestamp);
             }
         }
 
@@ -144,6 +144,7 @@ public class TrafficLightService {
                 setState(signal, 2, currentTimestamp);
                 greenSince.put(signal, currentTimestamp);
                 occupied.add(signal);
+                turnLinkedPedestrianGreenIfPossible(signal, occupied, currentTimestamp);
             }
         }
 
@@ -155,6 +156,39 @@ public class TrafficLightService {
         stateChangeTime.put(signal, timestamp);
         String name = switch (state) { case 0 -> "RED"; case 1 -> "ORANGE"; case 2 -> "GREEN"; default -> "?"; };
         System.out.println("[Controller] " + signal + " -> " + name);
+    }
+
+    private void turnLinkedPedestrianGreenIfPossible(String sourceSignal, Set<String> occupied, long currentTimestamp) {
+        String linkedSignal = PEDESTRIAN_SEQUENCE_PAIRS.get(sourceSignal);
+        if (linkedSignal == null) return;
+        if (states.getOrDefault(linkedSignal, 0) != 0) return;
+
+        long changedAt = stateChangeTime.getOrDefault(linkedSignal, 0L);
+        if ((currentTimestamp - changedAt) < minRedMs) return;
+        if (conflictHandler.canTurnGreen(linkedSignal, occupied, currentTimestamp)) {
+            setState(linkedSignal, 2, currentTimestamp);
+            greenSince.put(linkedSignal, currentTimestamp);
+            occupied.add(linkedSignal);
+        }
+    }
+
+    private void addWaitingRequest(List<ConflictHandler.WaitingRequest> waiting, Set<String> waitingSignals, String signal, String triggerSource, long currentTimestamp) {
+        int state = states.getOrDefault(signal, 0);
+        if (state != 0 || waitingSignals.contains(signal)) return;
+
+        long changedAt = stateChangeTime.getOrDefault(signal, 0L);
+        if ((currentTimestamp - changedAt) < minRedMs) return;
+
+        waitingSignals.add(signal);
+        long triggered = triggeredTimestamps.getOrDefault(triggerSource, currentTimestamp);
+        long waitTime = currentTimestamp - triggered;
+        boolean isStarving = waitTime >= MAX_RED_MS;
+
+        ConflictHandler.Priority pr = isStarving
+                ? ConflictHandler.Priority.TRAIN
+                : conflictHandler.priorityForSignal(signal);
+
+        waiting.add(new ConflictHandler.WaitingRequest(signal, pr, triggered));
     }
 
     private Set<String> getOccupiedSignals() {
@@ -199,5 +233,19 @@ public class TrafficLightService {
 
     private boolean isGreen(String signal, int state) {
         return state == 2 || ("42".equals(signal) && state == 4);
+    }
+
+    private long minGreenMsFor(String signal) {
+        if (conflictHandler.isBicycleOrPedestrianSignal(signal)) {
+            return BICYCLE_PEDESTRIAN_GREEN_MS;
+        }
+        return minGreenMs;
+    }
+
+    private long maxGreenMsFor(String signal) {
+        if (conflictHandler.isBicycleOrPedestrianSignal(signal)) {
+            return BICYCLE_PEDESTRIAN_GREEN_MS;
+        }
+        return maxGreenMs;
     }
 }
