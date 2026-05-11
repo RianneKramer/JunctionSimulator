@@ -6,7 +6,7 @@
  * - One-shot manual requests (for bus/bicycle/pedestrian request buttons)
  */
 
-import { getCars, CAR_LENGTH, BUS_LENGTH } from './carManager.js';
+import { getCars } from './carManager.js';
 import { MANUAL_LIGHTS, getSignalIds } from './paths.js';
 
 const manualRequests = {};
@@ -69,7 +69,7 @@ export function computeEntities(paths) {
   for (const car of cars) {
     if (!car.alive) continue;
     const p = paths[car.variantKey] || car.path;
-    const vehicleLength = car.vehicleType === 'bus' ? BUS_LENGTH : CAR_LENGTH;
+    const vehicleLength = car.length || 20;
     if (car.dist >= p.detectDist && car.dist <= p.stopDist + vehicleLength) {
       entities[car.signalId] = true;
     }

@@ -12,6 +12,7 @@
     .panel { width: 390px; background: #16213e; padding: 12px; overflow-y: auto; border-left: 2px solid #0f3460; font-size: 12px; }
     .panel h2 { color: #e94560; font-size: 14px; margin-bottom: 8px; }
     .panel h3 { color: #888; font-size: 11px; margin: 10px 0 4px; text-transform: uppercase; }
+    .panel h4 { color: #aaa; font-size: 10px; margin: 8px 0 2px; text-transform: uppercase; letter-spacing: 0.5px; }
     .path-btn, .variant-btn, .special-btn { display: inline-block; padding: 4px 8px; margin: 2px; border: 2px solid #444; border-radius: 4px; cursor: pointer; font-size: 11px; background: #222; color: #aaa; }
     .path-btn.active, .variant-btn.active, .special-btn.active { border-color: #e94560; color: #fff; background: #333; }
     .path-btn .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
@@ -22,7 +23,7 @@
     .btn-secondary { background: #333; color: #aaa; }
     .btn-warn { background: #f39c12; border-color: #f39c12; color: #000; }
     .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
-    .row input { flex: 1; background: #0a0a1a; color: #fff; border: 1px solid #333; border-radius: 3px; padding: 4px 6px; font-family: monospace; font-size: 11px; }
+    .row input, .row select { flex: 1; background: #0a0a1a; color: #fff; border: 1px solid #333; border-radius: 3px; padding: 4px 6px; font-family: monospace; font-size: 11px; }
     .wp-list { max-height: 240px; overflow-y: auto; margin: 4px 0; }
     .wp-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 3px; font-size: 11px; }
     .wp-row:hover { background: rgba(255,255,255,0.05); }
@@ -58,6 +59,7 @@
       <h3>Signal metadata</h3>
       <div class="row"><span>ID</span><input id="signal-id" disabled></div>
       <div class="row"><span>Desc</span><input id="signal-desc"></div>
+      <div class="row"><span>Type</span><select id="signal-type"><option value="car">car</option><option value="bike">bike</option><option value="pedestrian">pedestrian</option></select></div>
       <div class="row"><span>Color</span><input id="signal-color"></div>
 
       <h3>Variants</h3>
@@ -130,11 +132,20 @@
     const modeInfo = document.getElementById('mode-info');
     const signalIdInput = document.getElementById('signal-id');
     const signalDescInput = document.getElementById('signal-desc');
+    const signalTypeInput = document.getElementById('signal-type');
     const signalColorInput = document.getElementById('signal-color');
     const variantDescInput = document.getElementById('variant-desc');
     const outputEl = document.getElementById('output');
 
-    function getSignals() { return Object.keys(pathData); }
+    function getSignals() {
+      const order = ['car', 'bike', 'pedestrian'];
+      return Object.keys(pathData).sort((a, b) => {
+        const typeA = pathData[a]?.entityType || 'car';
+        const typeB = pathData[b]?.entityType || 'car';
+        const groupDiff = order.indexOf(typeA) - order.indexOf(typeB);
+        return groupDiff || a.localeCompare(b, undefined, { numeric: true });
+      });
+    }
     function getActiveSignal() { return activeSignal ? pathData[activeSignal] : null; }
     function getActiveVariantObj() {
       const signal = getActiveSignal();
@@ -164,18 +175,31 @@
     function buildButtons() {
       ensureSelection();
       pathButtonsEl.innerHTML = '';
-      for (const [id, signal] of Object.entries(pathData)) {
-        const btn = document.createElement('span');
-        btn.className = 'path-btn' + (activeSignal === id ? ' active' : '');
-        btn.innerHTML = `<span class="dot" style="background:${signal.color}"></span>${id} ${signal.desc}`;
-        btn.onclick = () => {
-          activeSignal = id;
-          activeVariant = signal.variants[0]?.id || null;
-          activeSpecial = null;
-          selectedWp = -1;
-          refresh();
-        };
-        pathButtonsEl.appendChild(btn);
+      const groups = [
+        ['Auto', 'car'],
+        ['Fiets', 'bike'],
+        ['Voetganger', 'pedestrian'],
+      ];
+      for (const [label, entityType] of groups) {
+        const ids = getSignals().filter((id) => (pathData[id]?.entityType || 'car') === entityType);
+        if (!ids.length) continue;
+        const heading = document.createElement('h4');
+        heading.textContent = label;
+        pathButtonsEl.appendChild(heading);
+        for (const id of ids) {
+          const signal = pathData[id];
+          const btn = document.createElement('span');
+          btn.className = 'path-btn' + (activeSignal === id ? ' active' : '');
+          btn.innerHTML = `<span class="dot" style="background:${signal.color}"></span>${id} ${signal.desc}`;
+          btn.onclick = () => {
+            activeSignal = id;
+            activeVariant = signal.variants[0]?.id || null;
+            activeSpecial = null;
+            selectedWp = -1;
+            refresh();
+          };
+          pathButtonsEl.appendChild(btn);
+        }
       }
 
       specialButtonsEl.innerHTML = '';
@@ -217,6 +241,7 @@
       editSection.style.display = 'block';
       signalIdInput.value = activeSignal;
       signalDescInput.value = signal.desc;
+      signalTypeInput.value = signal.entityType || 'car';
       signalColorInput.value = signal.color;
       variantDescInput.value = variant.desc || '';
 
@@ -478,6 +503,7 @@
       const raw = {};
       for (const [signalId, signal] of Object.entries(pathData)) {
         raw[signalId] = {
+          entityType: signal.entityType || 'car',
           color: signal.color,
           desc: signal.desc,
           variants: signal.variants.map(v => ({ id: v.id, desc: v.desc, points: v.points, stopIdx: v.stopIdx, detectIdx: v.detectIdx })),
@@ -495,16 +521,59 @@
       outputEl.value = `export const RAW_PATHS = ${JSON.stringify(bundle.RAW_PATHS, null, 2)};\n\nexport const RAIL_LAYOUT = ${JSON.stringify(bundle.RAIL_LAYOUT, null, 2)};`;
     }
 
+    function extractAssignedObject(text, name) {
+      const assignment = new RegExp(`${name}\\s*=`);
+      const match = assignment.exec(text);
+      if (!match) return null;
+
+      const start = text.indexOf('{', match.index);
+      if (start < 0) return null;
+
+      let depth = 0;
+      let inString = false;
+      let quote = '';
+      let escaped = false;
+
+      for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+          } else if (ch === '\\') {
+            escaped = true;
+          } else if (ch === quote) {
+            inString = false;
+          }
+          continue;
+        }
+
+        if (ch === '"' || ch === "'") {
+          inString = true;
+          quote = ch;
+          continue;
+        }
+
+        if (ch === '{') depth++;
+        if (ch === '}') {
+          depth--;
+          if (depth === 0) return text.slice(start, i + 1);
+        }
+      }
+
+      return null;
+    }
+
     function importJson() {
       const text = outputEl.value.trim();
       try {
         let parsed;
-        if (text.startsWith('export const RAW_PATHS =') || text.startsWith('const RAW_PATHS =')) {
-          const rawMatch = text.match(/RAW_PATHS\s*=\s*([\s\S]*?)\n\s*(?:export const RAIL_LAYOUT|const RAIL_LAYOUT|$)/);
-          const railMatch = text.match(/RAIL_LAYOUT\s*=\s*([\s\S]*?)\s*;?$/);
+        if (text.includes('RAW_PATHS')) {
+          const rawObject = extractAssignedObject(text, 'RAW_PATHS');
+          const railObject = extractAssignedObject(text, 'RAIL_LAYOUT');
           parsed = {
-            RAW_PATHS: rawMatch ? JSON.parse(rawMatch[1].trim().replace(/;$/, '')) : {},
-            RAIL_LAYOUT: railMatch ? JSON.parse(railMatch[1].trim().replace(/;$/, '')) : null,
+            RAW_PATHS: rawObject ? JSON.parse(rawObject) : {},
+            RAIL_LAYOUT: railObject ? JSON.parse(railObject) : null,
           };
         } else {
           parsed = JSON.parse(text);
@@ -528,8 +597,9 @@
       const id = prompt('New traffic light ID:');
       if (!id || pathData[id]) return;
       const desc = prompt('Description:', id) || id;
+      const entityType = prompt('Entity type (car, bike, pedestrian):', 'car') || 'car';
       const color = prompt('Color hex:', '#888888') || '#888888';
-      pathData[id] = { signalId: id, desc, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0 }] };
+      pathData[id] = { signalId: id, desc, entityType, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0 }] };
       activeSignal = id;
       activeVariant = 'main';
       activeSpecial = null;
@@ -588,6 +658,7 @@
     });
 
     signalDescInput.addEventListener('input', () => { const signal = getActiveSignal(); if (signal) { signal.desc = signalDescInput.value; refresh(); } });
+    signalTypeInput.addEventListener('change', () => { const signal = getActiveSignal(); if (signal) { signal.entityType = signalTypeInput.value; refresh(); } });
     signalColorInput.addEventListener('input', () => { const signal = getActiveSignal(); if (signal) { signal.color = signalColorInput.value; refresh(); } });
     variantDescInput.addEventListener('input', () => { const variant = getActiveVariantObj(); if (variant) { variant.desc = variantDescInput.value; refresh(); } });
     document.getElementById('set-detect-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.detectIdx = selectedWp; refresh(); } });

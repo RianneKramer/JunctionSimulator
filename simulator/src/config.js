@@ -9,7 +9,8 @@ const DEFAULT_CONFIG = {
   controllerUrl: "http://localhost:8080",
   endpoint: "/data",
   postInterval: 3000,
-  spawnInterval: 6000,
+  carSpawnInterval: 6000,
+  vulnerableRoadUserSpawnInterval: 7000,
   trainIntervalMs: 90000,
   trainWarningMs: 5000,
   trainLoweringMs: 15000,
@@ -61,9 +62,19 @@ export async function loadConfig() {
       }
       config.endpoint = "/data";
 
+      const legacySpawnInterval = Number(data.spawnInterval);
+      if (
+        !Number.isFinite(Number(data.carSpawnInterval)) &&
+        Number.isFinite(legacySpawnInterval) &&
+        legacySpawnInterval > 0
+      ) {
+        config.carSpawnInterval = legacySpawnInterval;
+      }
+
       const numericKeys = [
         "postInterval",
-        "spawnInterval",
+        "carSpawnInterval",
+        "vulnerableRoadUserSpawnInterval",
         "trainIntervalMs",
         "trainWarningMs",
         "trainLoweringMs",

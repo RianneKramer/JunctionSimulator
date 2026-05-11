@@ -1,5 +1,5 @@
 /**
- * Vehicle management: spawning, movement, queuing, and collision avoidance.
+ * Path entity management: spawning, movement, queuing, and collision avoidance.
  *
  * Supports multiple frontend-only route variants under a single controller
  * traffic light. The controller still only sees the parent signal ID.
@@ -11,19 +11,43 @@ const CAR_LENGTH = 20;
 const CAR_WIDTH = 10;
 const BUS_LENGTH = 28;
 const BUS_WIDTH = 12;
-const MIN_GAP = 30;
+const BIKE_LENGTH = 14;
+const BIKE_WIDTH = 6;
+const PEDESTRIAN_LENGTH = 7;
+const PEDESTRIAN_WIDTH = 7;
 const COLLISION_RADIUS = 16;
 
-let cars = [];
+let entities = [];
 let idCounter = 0;
 
-function getVehicleProfile(signalId) {
+function getEntityProfile(signalId, path) {
   if (signalId === '42') {
     return {
       vehicleType: 'bus',
       length: BUS_LENGTH,
       width: BUS_WIDTH,
+      minGap: 32,
       speed: 1.1 + Math.random() * 0.25,
+    };
+  }
+
+  if (path.entityType === 'bike') {
+    return {
+      vehicleType: 'bike',
+      length: BIKE_LENGTH,
+      width: BIKE_WIDTH,
+      minGap: 18,
+      speed: 1.25 + Math.random() * 0.25,
+    };
+  }
+
+  if (path.entityType === 'pedestrian') {
+    return {
+      vehicleType: 'pedestrian',
+      length: PEDESTRIAN_LENGTH,
+      width: PEDESTRIAN_WIDTH,
+      minGap: 14,
+      speed: 0.65 + Math.random() * 0.18,
     };
   }
 
@@ -31,6 +55,7 @@ function getVehicleProfile(signalId) {
     vehicleType: 'car',
     length: CAR_LENGTH,
     width: CAR_WIDTH,
+    minGap: 30,
     speed: 1.5 + Math.random() * 0.5,
   };
 }
@@ -48,21 +73,33 @@ function pickVariantKey(signalId, paths) {
  * @param {Object} paths - map of computed variant paths
  */
 export function spawnCar(signalId, paths) {
+  return spawnEntity(signalId, paths);
+}
+
+/**
+ * Spawn a path entity for a given controller signal.
+ *
+ * @param {string} signalId - controller-facing signal ID (e.g. "5.1")
+ * @param {Object} paths - map of computed variant paths
+ */
+export function spawnEntity(signalId, paths) {
   const variantKey = pickVariantKey(signalId, paths);
-  if (!variantKey) return;
+  if (!variantKey) return false;
 
   const path = paths[variantKey];
-  const profile = getVehicleProfile(signalId);
+  const profile = getEntityProfile(signalId, path);
 
-  cars.push({
+  entities.push({
     id: ++idCounter,
     signalId,
     pathId: signalId,
     variantKey,
     path,
+    entityType: path.entityType || profile.vehicleType,
     vehicleType: profile.vehicleType,
     length: profile.length,
     width: profile.width,
+    minGap: profile.minGap,
     dist: 0,
     speed: profile.speed,
     x: path.points[0][0],
@@ -70,16 +107,18 @@ export function spawnCar(signalId, paths) {
     angle: 0,
     alive: true,
   });
+  return true;
 }
 
 /**
  * Spawn a vehicle on a random signal, if there is room at the spawn point.
  */
 export function spawnRandom(signalIds, paths) {
+  if (!signalIds.length) return;
   const signalId = signalIds[Math.floor(Math.random() * signalIds.length)];
   const variants = getSignalVariantKeys(paths, signalId);
-  const tooClose = cars.some((c) => c.alive && variants.includes(c.variantKey) && c.dist < 40);
-  if (!tooClose) spawnCar(signalId, paths);
+  const tooClose = entities.some((c) => c.alive && variants.includes(c.variantKey) && c.dist < 40);
+  if (!tooClose) spawnEntity(signalId, paths);
 }
 
 function isSignalGreen(signalId, lightStates) {
@@ -93,46 +132,53 @@ function isSignalGreen(signalId, lightStates) {
 /**
  * Update a single vehicle for one frame.
  */
-export function updateCar(car, lightStates) {
-  if (!car.alive) return;
+export function updateCar(entity, lightStates) {
+  return updateEntity(entity, lightStates);
+}
 
-  const beforeStop = car.dist < car.path.stopDist;
+/**
+ * Update a single path entity for one frame.
+ */
+export function updateEntity(entity, lightStates) {
+  if (!entity.alive) return;
 
-  if (beforeStop && !isSignalGreen(car.signalId, lightStates)) {
-    if (car.dist + car.speed >= car.path.stopDist) {
-      car.dist = car.path.stopDist - 1;
-      syncPosition(car);
+  const beforeStop = entity.dist < entity.path.stopDist;
+
+  if (beforeStop && !isSignalGreen(entity.signalId, lightStates)) {
+    if (entity.dist + entity.speed >= entity.path.stopDist) {
+      entity.dist = entity.path.stopDist - 1;
+      syncPosition(entity);
       return;
     }
   }
 
-  const ahead = findCarAhead(car);
-  if (ahead && (ahead.dist - car.dist) < MIN_GAP) {
-    syncPosition(car);
+  const ahead = findCarAhead(entity);
+  if (ahead && (ahead.dist - entity.dist) < entity.minGap) {
+    syncPosition(entity);
     return;
   }
 
-  if (car.dist >= car.path.stopDist && shouldYield(car)) {
-    syncPosition(car);
+  if (entity.dist >= entity.path.stopDist && shouldYield(entity)) {
+    syncPosition(entity);
     return;
   }
 
-  car.dist += car.speed;
-  if (car.dist >= car.path.totalLength) {
-    car.alive = false;
+  entity.dist += entity.speed;
+  if (entity.dist >= entity.path.totalLength) {
+    entity.alive = false;
     return;
   }
-  syncPosition(car);
+  syncPosition(entity);
 }
 
-function shouldYield(car) {
-  const nextPos = posAt(car.path, car.dist + car.speed);
-  const fwd = posAt(car.path, car.dist + 10);
-  const myDirX = fwd.x - car.x;
-  const myDirY = fwd.y - car.y;
+function shouldYield(entity) {
+  const nextPos = posAt(entity.path, entity.dist + entity.speed);
+  const fwd = posAt(entity.path, entity.dist + 10);
+  const myDirX = fwd.x - entity.x;
+  const myDirY = fwd.y - entity.y;
 
-  for (const other of cars) {
-    if (other === car || !other.alive || other.variantKey === car.variantKey) continue;
+  for (const other of entities) {
+    if (other === entity || !other.alive || other.variantKey === entity.variantKey) continue;
     if (other.dist <= other.path.stopDist - 5) continue;
 
     const dx = nextPos.x - other.x;
@@ -140,11 +186,11 @@ function shouldYield(car) {
 
     if (dx * dx + dy * dy >= COLLISION_RADIUS * COLLISION_RADIUS) continue;
 
-    const toDx = other.x - car.x;
-    const toDy = other.y - car.y;
+    const toDx = other.x - entity.x;
+    const toDy = other.y - entity.y;
     const dot = toDx * myDirX + toDy * myDirY;
 
-    if (dot > 0 && car.id > other.id) {
+    if (dot > 0 && entity.id > other.id) {
       return true;
     }
   }
@@ -152,13 +198,13 @@ function shouldYield(car) {
   return false;
 }
 
-function findCarAhead(car) {
+function findCarAhead(entity) {
   let best = null;
   let bestGap = Infinity;
 
-  for (const c of cars) {
-    if (c === car || !c.alive || c.variantKey !== car.variantKey) continue;
-    const gap = c.dist - car.dist;
+  for (const c of entities) {
+    if (c === entity || !c.alive || c.variantKey !== entity.variantKey) continue;
+    const gap = c.dist - entity.dist;
     if (gap > 0 && gap < bestGap) {
       best = c;
       bestGap = gap;
@@ -176,18 +222,31 @@ function syncPosition(car) {
 }
 
 export function updateAll(lightStates) {
-  for (const car of cars) {
-    updateCar(car, lightStates);
+  for (const entity of entities) {
+    updateEntity(entity, lightStates);
   }
-  cars = cars.filter((c) => c.alive);
+  entities = entities.filter((c) => c.alive);
 }
 
 export function getCars() {
-  return cars;
+  return entities;
+}
+
+export function getEntities() {
+  return entities;
 }
 
 export function getTotalSpawned() {
   return idCounter;
 }
 
-export { CAR_LENGTH, CAR_WIDTH, BUS_LENGTH, BUS_WIDTH };
+export {
+  CAR_LENGTH,
+  CAR_WIDTH,
+  BUS_LENGTH,
+  BUS_WIDTH,
+  BIKE_LENGTH,
+  BIKE_WIDTH,
+  PEDESTRIAN_LENGTH,
+  PEDESTRIAN_WIDTH,
+};

@@ -1,5 +1,5 @@
 /**
- * Route definitions for traffic lights that can spawn animated vehicles.
+ * Route definitions for traffic lights that can spawn animated path entities.
  *
  * External controller IDs stay unchanged. Multiple frontend-only route variants
  * can exist under the same controller light ID.
@@ -286,6 +286,343 @@ export const RAW_PATHS = {
       },
     ],
   },
+  22: {
+    entityType: "bike",
+    color: "#16a085",
+    desc: "Fiets Oost",
+    variants: [
+      {
+        id: "south-north",
+        desc: "E arm S->N",
+        points: [
+          [422, 640],
+          [421, 527],
+          [421, 434],
+          [421, 400],
+          [420, 327],
+          [420, 252],
+          [420, 235],
+          [401, 213],
+          [401, 161],
+        ],
+        stopIdx: 3,
+        detectIdx: 2,
+      },
+    ],
+  },
+  26.1: {
+    entityType: "bike",
+    color: "#16a085",
+    desc: "Fiets West",
+    variants: [
+      {
+        id: "north-south",
+        desc: "W arm N->S",
+        points: [
+          [209, 139],
+          [207, 166],
+          [206, 197],
+          [206, 226],
+          [206, 317],
+          [206, 376],
+          [256, 382],
+          [278, 414],
+          [279, 450],
+          [280, 551],
+          [281, 636],
+        ],
+        stopIdx: 3,
+        detectIdx: 2,
+      },
+    ],
+  },
+  28.1: {
+    entityType: "bike",
+    color: "#16a085",
+    desc: "Fiets N-O",
+    variants: [
+      {
+        id: "west-east",
+        desc: "N arm W->E",
+        points: [
+          [477, 237],
+          [423, 236],
+          [411, 221],
+          [396, 195],
+          [339, 194],
+          [226, 196],
+          [221, 179],
+          [221, 113],
+        ],
+        stopIdx: 3,
+        detectIdx: 2,
+      },
+    ],
+  },
+  86.1: {
+    entityType: "bike",
+    color: "#16a085",
+    desc: "Fiets Z/W",
+    variants: [
+      {
+        id: "north-south",
+        desc: "SW crossing N->S",
+        points: [
+          [301, 637],
+          [296, 395],
+          [273, 372],
+          [248, 363],
+          [221, 360],
+          [222, 210],
+          [222, 114],
+        ],
+        stopIdx: 4,
+        detectIdx: 3,
+      },
+    ],
+  },
+  88.1: {
+    entityType: "bike",
+    color: "#16a085",
+    desc: "Fiets West2",
+    variants: [
+      {
+        id: "west-east",
+        desc: "W arm W->E",
+        points: [
+          [208, 138],
+          [220, 195],
+          [233, 209],
+          [401, 210],
+          [416, 234],
+          [477, 236],
+        ],
+        stopIdx: 2,
+        detectIdx: 1,
+      },
+    ],
+  },
+  31.1: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg O Z>N 1",
+    variants: [
+      {
+        id: "south-north",
+        desc: "E crossing S->N inner",
+        points: [
+          [433, 341],
+          [433, 333],
+          [431, 242],
+          [449, 242],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  31.2: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg O Z>N 2",
+    variants: [
+      {
+        id: "south-north",
+        desc: "E crossing S->N outer",
+        points: [
+          [461, 244],
+          [432, 244],
+          [432, 334],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  32.1: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg O N>Z 1",
+    variants: [
+      {
+        id: "north-south",
+        desc: "E crossing N->S inner",
+        points: [
+          [433, 327],
+          [432, 336],
+          [432, 455],
+          [431, 551],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  32.2: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg O N>Z 2",
+    variants: [
+      {
+        id: "north-south",
+        desc: "E crossing N->S outer",
+        points: [
+          [433, 550],
+          [433, 416],
+          [433, 397],
+          [433, 334],
+        ],
+        stopIdx: 2,
+        detectIdx: 1,
+      },
+    ],
+  },
+  35.1: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg W N>Z 1",
+    variants: [
+      {
+        id: "north-south",
+        desc: "W crossing N->S inner",
+        points: [
+          [195, 260],
+          [194, 268],
+          [196, 358],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  35.2: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg W N>Z 2",
+    variants: [
+      {
+        id: "north-south",
+        desc: "W crossing N->S outer",
+        points: [
+          [172, 358],
+          [194, 356],
+          [195, 266],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  36.1: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg W Z>N 1",
+    variants: [
+      {
+        id: "south-north",
+        desc: "W crossing S->N inner",
+        points: [
+          [194, 271],
+          [195, 263],
+          [194, 173],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  36.2: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg W Z>N 2",
+    variants: [
+      {
+        id: "south-north",
+        desc: "W crossing S->N outer",
+        points: [
+          [194, 171],
+          [195, 213],
+          [194, 230],
+          [195, 264],
+        ],
+        stopIdx: 2,
+        detectIdx: 1,
+      },
+    ],
+  },
+  37.1: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg N O>W 1",
+    variants: [
+      {
+        id: "east-west",
+        desc: "N crossing E->W inner",
+        points: [
+          [360, 185],
+          [349, 185],
+          [233, 184],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  37.2: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg N O>W 2",
+    variants: [
+      {
+        id: "east-west",
+        desc: "N crossing E->W outer",
+        points: [
+          [194, 184],
+          [222, 183],
+          [236, 183],
+          [354, 185],
+        ],
+        stopIdx: 2,
+        detectIdx: 1,
+      },
+    ],
+  },
+  38.1: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg N W<O 1",
+    variants: [
+      {
+        id: "west-east",
+        desc: "N crossing W->E inner",
+        points: [
+          [347, 185],
+          [358, 185],
+          [395, 184],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
+  38.2: {
+    entityType: "pedestrian",
+    color: "#7bdcb5",
+    desc: "Voetg N W<O 2",
+    variants: [
+      {
+        id: "west-east",
+        desc: "N crossing W->E outer",
+        points: [
+          [393, 156],
+          [392, 185],
+          [353, 185],
+        ],
+        stopIdx: 1,
+        detectIdx: 0,
+      },
+    ],
+  },
 };
 
 export const RAIL_LAYOUT = {
@@ -308,23 +645,6 @@ export const RAIL_LAYOUT = {
 
 export const MANUAL_LIGHTS = {
   42: { desc: "Bus E", cat: "bus" },
-  22: { desc: "Fiets Oost", cat: "fiets" },
-  26.1: { desc: "Fiets West", cat: "fiets" },
-  28.1: { desc: "Fiets N-O", cat: "fiets" },
-  86.1: { desc: "Fiets Z/W", cat: "fiets" },
-  88.1: { desc: "Fiets West2", cat: "fiets" },
-  31.1: { desc: "Voetg O Z>N 1", cat: "voetg" },
-  31.2: { desc: "Voetg O Z>N 2", cat: "voetg" },
-  32.1: { desc: "Voetg O N>Z 1", cat: "voetg" },
-  32.2: { desc: "Voetg O N>Z 2", cat: "voetg" },
-  35.1: { desc: "Voetg W N>Z 1", cat: "voetg" },
-  35.2: { desc: "Voetg W N>Z 2", cat: "voetg" },
-  36.1: { desc: "Voetg W Z>N 1", cat: "voetg" },
-  36.2: { desc: "Voetg W Z>N 2", cat: "voetg" },
-  37.1: { desc: "Voetg N O>W 1", cat: "voetg" },
-  37.2: { desc: "Voetg N O>W 2", cat: "voetg" },
-  38.1: { desc: "Voetg N W<O 1", cat: "voetg" },
-  38.2: { desc: "Voetg N W<O 2", cat: "voetg" },
 };
 
 export const SPECIAL_LIGHTS = {
@@ -337,6 +657,7 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
   for (const [signalId, raw] of Object.entries(rawPaths)) {
     const baseColor = raw.color || "#888";
     const baseDesc = raw.desc || signalId;
+    const entityType = raw.entityType || "car";
 
     const variants =
       Array.isArray(raw.variants) && raw.variants.length
@@ -347,6 +668,7 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
             points: variant.points,
             stopIdx: variant.stopIdx,
             detectIdx: variant.detectIdx,
+            entityType: variant.entityType || entityType,
           }))
         : [
             {
@@ -356,6 +678,7 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
               points: raw.points,
               stopIdx: raw.stopIdx,
               detectIdx: raw.detectIdx,
+              entityType,
             },
           ];
 
@@ -363,6 +686,7 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
       signalId,
       desc: baseDesc,
       color: baseColor,
+      entityType,
       variants,
     };
   }
@@ -372,9 +696,13 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
 
 export function getSignalIds(
   rawPaths = RAW_PATHS,
-  { includeRail = false } = {},
+  { includeRail = false, entityTypes = null } = {},
 ) {
-  return Object.keys(normalizePathDefinitions(rawPaths)).filter(
-    (id) => includeRail || id !== RAIL_SIGNAL_ID,
-  );
+  const allowedTypes = entityTypes ? new Set(entityTypes) : null;
+  return Object.entries(normalizePathDefinitions(rawPaths))
+    .filter(([id, signal]) => includeRail || id !== RAIL_SIGNAL_ID)
+    .filter(
+      ([, signal]) => !allowedTypes || allowedTypes.has(signal.entityType),
+    )
+    .map(([id]) => id);
 }

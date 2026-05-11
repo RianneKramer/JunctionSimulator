@@ -19,7 +19,8 @@ let config = {
   controllerUrl: process.env.CONTROLLER_URL || "http://localhost:8080",
   endpoint: CONTROLLER_ENDPOINT,
   postInterval: parseInt(process.env.POST_INTERVAL || "3000", 10),
-  spawnInterval: parseInt(process.env.SPAWN_INTERVAL || "6000", 10),
+  carSpawnInterval: parseInt(process.env.CAR_SPAWN_INTERVAL || process.env.SPAWN_INTERVAL || "6000", 10),
+  vulnerableRoadUserSpawnInterval: parseInt(process.env.VULNERABLE_ROAD_USER_SPAWN_INTERVAL || "7000", 10),
   trainIntervalMs: parseInt(process.env.TRAIN_INTERVAL_MS || "90000", 10),
   trainWarningMs: parseInt(process.env.TRAIN_WARNING_MS || "5000", 10),
   trainLoweringMs: parseInt(process.env.TRAIN_LOWERING_MS || "15000", 10),
@@ -47,11 +48,20 @@ function normalizeControllerUrl(raw) {
 if (fs.existsSync(configFilePath)) {
   try {
     const savedConfig = JSON.parse(fs.readFileSync(configFilePath, "utf8"));
+    let shouldSaveConfig = false;
     config = {
       ...config,
       ...savedConfig,
       endpoint: CONTROLLER_ENDPOINT,
     };
+    if (!savedConfig.carSpawnInterval && savedConfig.spawnInterval) {
+      config.carSpawnInterval = savedConfig.spawnInterval;
+      shouldSaveConfig = true;
+    }
+    if ("spawnInterval" in config) {
+      delete config.spawnInterval;
+      shouldSaveConfig = true;
+    }
 
     const normalized = normalizeControllerUrl(config.controllerUrl);
     if (!normalized) {
@@ -60,6 +70,8 @@ if (fs.existsSync(configFilePath)) {
       saveConfigFile();
     } else if (normalized !== config.controllerUrl || savedConfig.endpoint !== CONTROLLER_ENDPOINT) {
       config.controllerUrl = normalized;
+      saveConfigFile();
+    } else if (shouldSaveConfig) {
       saveConfigFile();
     }
   } catch (err) {
@@ -141,9 +153,14 @@ app.post("/api/config", (req, res) => {
     config.controllerUrl = normalized;
   }
 
+  if (!req.body.carSpawnInterval && req.body.spawnInterval) {
+    req.body.carSpawnInterval = req.body.spawnInterval;
+  }
+
   for (const key of [
     "postInterval",
-    "spawnInterval",
+    "carSpawnInterval",
+    "vulnerableRoadUserSpawnInterval",
     "trainIntervalMs",
     "trainWarningMs",
     "trainLoweringMs",
@@ -169,7 +186,8 @@ app.get("/config", (req, res) => {
       <label>Controller URL: <input name="controllerUrl" value="${config.controllerUrl}" size="40"></label><br><br>
       <label>Endpoint: <input value="${CONTROLLER_ENDPOINT}" size="20" disabled></label><br><br>
       <label>POST Interval (ms): <input name="postInterval" value="${config.postInterval}" type="number"></label><br><br>
-      <label>Spawn Interval (ms): <input name="spawnInterval" value="${config.spawnInterval}" type="number"></label><br><br>
+      <label>Car spawn interval (ms): <input name="carSpawnInterval" value="${config.carSpawnInterval}" type="number"></label><br><br>
+      <label>Bicycle/pedestrian spawn interval (ms): <input name="vulnerableRoadUserSpawnInterval" value="${config.vulnerableRoadUserSpawnInterval}" type="number"></label><br><br>
       <label>Train interval (ms): <input name="trainIntervalMs" value="${config.trainIntervalMs}" type="number"></label><br><br>
       <label>Train warning duration (ms): <input name="trainWarningMs" value="${config.trainWarningMs}" type="number"></label><br><br>
       <label>Train lowering duration (ms): <input name="trainLoweringMs" value="${config.trainLoweringMs}" type="number"></label><br><br>

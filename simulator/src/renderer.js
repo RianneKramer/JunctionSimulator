@@ -73,7 +73,7 @@ function drawDetectionZones(ctx, paths, entities) {
     ctx.strokeStyle = entities[signalId]
       ? 'rgba(255,200,0,0.4)'
       : 'rgba(100,100,100,0.2)';
-    ctx.lineWidth = 14;
+    ctx.lineWidth = p.entityType === 'pedestrian' ? 7 : p.entityType === 'bike' ? 9 : 14;
     ctx.lineCap = 'round';
 
     const start = posAt(p, p.detectDist);
@@ -160,6 +160,16 @@ function drawCars(ctx) {
   for (const car of getCars()) {
     if (!car.alive) continue;
 
+    if (car.vehicleType === 'pedestrian') {
+      drawPedestrian(ctx, car);
+      continue;
+    }
+
+    if (car.vehicleType === 'bike') {
+      drawBike(ctx, car);
+      continue;
+    }
+
     ctx.save();
     ctx.translate(car.x, car.y);
     ctx.rotate(car.angle);
@@ -179,4 +189,55 @@ function drawCars(ctx) {
 
     ctx.restore();
   }
+}
+
+function drawBike(ctx, bike) {
+  ctx.save();
+  ctx.translate(bike.x, bike.y);
+  ctx.rotate(bike.angle);
+
+  ctx.strokeStyle = '#0b6b57';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(-4, 0, 3, 0, Math.PI * 2);
+  ctx.arc(5, 0, 3, 0, Math.PI * 2);
+  ctx.moveTo(-4, 0);
+  ctx.lineTo(0, -4);
+  ctx.lineTo(5, 0);
+  ctx.moveTo(0, -4);
+  ctx.lineTo(2, -8);
+  ctx.stroke();
+
+  ctx.fillStyle = bike.path.color || '#16a085';
+  ctx.beginPath();
+  ctx.arc(0, -6, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawPedestrian(ctx, pedestrian) {
+  ctx.save();
+  ctx.translate(pedestrian.x, pedestrian.y);
+  ctx.rotate(pedestrian.angle);
+
+  ctx.fillStyle = pedestrian.path.color || '#7bdcb5';
+  ctx.beginPath();
+  ctx.arc(0, -4, 3, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = '#1b5e4a';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -1);
+  ctx.lineTo(0, 5);
+  ctx.moveTo(-4, 2);
+  ctx.lineTo(4, 2);
+  ctx.moveTo(0, 5);
+  ctx.lineTo(-3, 10);
+  ctx.moveTo(0, 5);
+  ctx.lineTo(3, 10);
+  ctx.stroke();
+
+  ctx.restore();
 }

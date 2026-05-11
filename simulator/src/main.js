@@ -14,6 +14,10 @@ import { configureTrain, tickTrainSchedule } from './trainManager.js';
 
 const paths = buildAllPaths(RAW_PATHS);
 const signalIds = getSignalIds(RAW_PATHS);
+const carSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['car'] });
+const vulnerableRoadUserSignalIds = getSignalIds(RAW_PATHS, {
+  entityTypes: ['bike', 'pedestrian'],
+});
 
 const lightStates = {};
 for (const id of signalIds) lightStates[id] = 0;
@@ -70,7 +74,11 @@ async function init() {
 
   controllerTick();
   setInterval(controllerTick, config.postInterval);
-  setInterval(() => spawnRandom(signalIds, paths), config.spawnInterval);
+  setInterval(() => spawnRandom(carSignalIds, paths), config.carSpawnInterval);
+  setInterval(
+    () => spawnRandom(vulnerableRoadUserSignalIds, paths),
+    config.vulnerableRoadUserSpawnInterval,
+  );
 
   requestAnimationFrame(gameLoop);
 
