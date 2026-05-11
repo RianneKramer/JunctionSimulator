@@ -20,6 +20,10 @@ const COLLISION_RADIUS = 16;
 let entities = [];
 let idCounter = 0;
 
+function isVulnerableRoadUser(entity) {
+  return entity.entityType === 'bike' || entity.entityType === 'pedestrian';
+}
+
 function getEntityProfile(signalId, path) {
   if (signalId === '42') {
     return {
@@ -117,7 +121,9 @@ export function spawnRandom(signalIds, paths) {
   if (!signalIds.length) return;
   const signalId = signalIds[Math.floor(Math.random() * signalIds.length)];
   const variants = getSignalVariantKeys(paths, signalId);
-  const tooClose = entities.some((c) => c.alive && variants.includes(c.variantKey) && c.dist < 40);
+  const firstVariant = variants.length ? paths[variants[0]] : null;
+  const needsGap = !firstVariant || !['bike', 'pedestrian'].includes(firstVariant.entityType);
+  const tooClose = needsGap && entities.some((c) => c.alive && variants.includes(c.variantKey) && c.dist < 40);
   if (!tooClose) spawnEntity(signalId, paths);
 }
 
@@ -139,7 +145,7 @@ export function updateCar(entity, lightStates) {
 /**
  * Update a single path entity for one frame.
  */
-export function updateEntity(entity, lightStates) {
+export function updateEntity(entity, lightStates, paths) {
   if (!entity.alive) return;
 
   const beforeStop = entity.dist < entity.path.stopDist;
@@ -165,10 +171,42 @@ export function updateEntity(entity, lightStates) {
 
   entity.dist += entity.speed;
   if (entity.dist >= entity.path.totalLength) {
+    if (transitionToNextPath(entity, paths)) {
+      return;
+    }
     entity.alive = false;
     return;
   }
   syncPosition(entity);
+}
+
+function transitionToNextPath(entity, paths) {
+  if (entity.entityType !== 'pedestrian' || !entity.path.nextSignalId || !paths) {
+    return false;
+  }
+
+  const variantKey = pickVariantKey(entity.path.nextSignalId, paths);
+  if (!variantKey) return false;
+
+  const path = paths[variantKey];
+  const profile = getEntityProfile(entity.path.nextSignalId, path);
+
+  entity.signalId = entity.path.nextSignalId;
+  entity.pathId = entity.signalId;
+  entity.variantKey = variantKey;
+  entity.path = path;
+  entity.entityType = path.entityType || profile.vehicleType;
+  entity.vehicleType = profile.vehicleType;
+  entity.length = profile.length;
+  entity.width = profile.width;
+  entity.minGap = profile.minGap;
+  entity.speed = profile.speed;
+  entity.dist = 0;
+  entity.x = path.points[0][0];
+  entity.y = path.points[0][1];
+  entity.angle = 0;
+
+  return true;
 }
 
 function shouldYield(entity) {
@@ -179,6 +217,7 @@ function shouldYield(entity) {
 
   for (const other of entities) {
     if (other === entity || !other.alive || other.variantKey === entity.variantKey) continue;
+    if (isVulnerableRoadUser(entity) && isVulnerableRoadUser(other)) continue;
     if (other.dist <= other.path.stopDist - 5) continue;
 
     const dx = nextPos.x - other.x;
@@ -199,6 +238,8 @@ function shouldYield(entity) {
 }
 
 function findCarAhead(entity) {
+  if (isVulnerableRoadUser(entity)) return null;
+
   let best = null;
   let bestGap = Infinity;
 
@@ -221,9 +262,9 @@ function syncPosition(car) {
   car.angle = p.angle;
 }
 
-export function updateAll(lightStates) {
+export function updateAll(lightStates, paths) {
   for (const entity of entities) {
-    updateEntity(entity, lightStates);
+    updateEntity(entity, lightStates, paths);
   }
   entities = entities.filter((c) => c.alive);
 }

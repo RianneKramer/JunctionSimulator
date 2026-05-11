@@ -2,7 +2,14 @@
  * Side panel UI.
  */
 
-import { RAW_PATHS, MANUAL_LIGHTS, SPECIAL_LIGHTS, RAIL_SIGNAL_ID, getSignalIds } from './paths.js';
+import {
+  CONTINUATION_ONLY_PEDESTRIAN_IDS,
+  RAW_PATHS,
+  MANUAL_LIGHTS,
+  SPECIAL_LIGHTS,
+  RAIL_SIGNAL_ID,
+  getSignalIds,
+} from './paths.js';
 import { getCars, getTotalSpawned, spawnEntity } from './carManager.js';
 import { requestManualEntity, getManualEntity } from './entityDetection.js';
 import { getTrainScheduleState, triggerTrainSoon } from './trainManager.js';
@@ -11,7 +18,10 @@ export function buildPanel(container, paths) {
   let html = '';
   const carSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['car'] });
   const bikeSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['bike'] });
-  const pedestrianSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['pedestrian'] });
+  const pedestrianSignalIds = getSignalIds(RAW_PATHS, {
+    entityTypes: ['pedestrian'],
+    excludeIds: CONTINUATION_ONLY_PEDESTRIAN_IDS,
+  });
 
   html += '<h3>Auto (Spawn Cars)</h3>';
   for (const signalId of carSignalIds) {

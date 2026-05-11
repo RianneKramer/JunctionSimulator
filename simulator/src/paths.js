@@ -9,7 +9,32 @@
 export const RAIL_SIGNAL_ID = "sb";
 
 export const RAW_PATHS = {
+  22: {
+    entityType: "bike",
+    color: "#16a085",
+    desc: "Fiets Oost",
+    variants: [
+      {
+        id: "south-north",
+        desc: "E arm S->N",
+        points: [
+          [422, 640],
+          [421, 527],
+          [421, 434],
+          [421, 400],
+          [420, 327],
+          [420, 252],
+          [420, 235],
+          [401, 213],
+          [401, 161],
+        ],
+        stopIdx: 3,
+        detectIdx: 2,
+      },
+    ],
+  },
   1.1: {
+    entityType: "car",
     color: "#e74c3c",
     desc: "E->N",
     variants: [
@@ -20,7 +45,7 @@ export const RAW_PATHS = {
           [640, 289],
           [545, 289],
           [480, 288],
-          [443, 287],
+          [451, 288],
           [395, 282],
           [372, 237],
           [371, 160],
@@ -33,6 +58,7 @@ export const RAW_PATHS = {
     ],
   },
   2.1: {
+    entityType: "car",
     color: "#e74c3c",
     desc: "E->W",
     variants: [
@@ -43,7 +69,7 @@ export const RAW_PATHS = {
           [640, 314],
           [553, 316],
           [483, 315],
-          [444, 315],
+          [453, 315],
           [400, 312],
           [351, 301],
           [317, 273],
@@ -59,6 +85,7 @@ export const RAW_PATHS = {
     ],
   },
   5.1: {
+    entityType: "car",
     color: "#2ecc71",
     desc: "S lane split",
     variants: [
@@ -102,6 +129,7 @@ export const RAW_PATHS = {
     ],
   },
   6.1: {
+    entityType: "car",
     color: "#2ecc71",
     desc: "S->W",
     variants: [
@@ -128,6 +156,7 @@ export const RAW_PATHS = {
     ],
   },
   7.1: {
+    entityType: "car",
     color: "#f39c12",
     desc: "W->S",
     variants: [
@@ -137,8 +166,8 @@ export const RAW_PATHS = {
         points: [
           [0, 333],
           [85, 336],
-          [148, 336],
-          [180, 336],
+          [144, 336],
+          [176, 336],
           [257, 335],
           [314, 358],
           [324, 423],
@@ -152,6 +181,7 @@ export const RAW_PATHS = {
     ],
   },
   8.1: {
+    entityType: "car",
     color: "#f39c12",
     desc: "W->E",
     variants: [
@@ -162,7 +192,7 @@ export const RAW_PATHS = {
           [0, 307],
           [73, 306],
           [143, 309],
-          [179, 310],
+          [173, 309],
           [277, 317],
           [365, 349],
           [458, 349],
@@ -175,6 +205,7 @@ export const RAW_PATHS = {
     ],
   },
   9.1: {
+    entityType: "car",
     color: "#f39c12",
     desc: "W->N",
     variants: [
@@ -185,7 +216,7 @@ export const RAW_PATHS = {
           [0, 279],
           [70, 280],
           [142, 282],
-          [181, 283],
+          [172, 283],
           [241, 285],
           [307, 283],
           [351, 271],
@@ -199,6 +230,7 @@ export const RAW_PATHS = {
     ],
   },
   10.1: {
+    entityType: "car",
     color: "#3498db",
     desc: "N->W",
     variants: [
@@ -208,8 +240,8 @@ export const RAW_PATHS = {
         points: [
           [253, 0],
           [253, 70],
-          [254, 140],
-          [253, 170],
+          [254, 134],
+          [254, 162],
           [255, 206],
           [244, 244],
           [209, 249],
@@ -222,6 +254,7 @@ export const RAW_PATHS = {
     ],
   },
   11.1: {
+    entityType: "car",
     color: "#3498db",
     desc: "N->S",
     variants: [
@@ -231,8 +264,8 @@ export const RAW_PATHS = {
         points: [
           [281, 0],
           [282, 70],
-          [281, 140],
-          [281, 168],
+          [281, 133],
+          [281, 162],
           [280, 250],
           [306, 325],
           [324, 396],
@@ -245,6 +278,7 @@ export const RAW_PATHS = {
     ],
   },
   12.1: {
+    entityType: "car",
     color: "#3498db",
     desc: "N->E",
     variants: [
@@ -254,8 +288,8 @@ export const RAW_PATHS = {
         points: [
           [310, 0],
           [309, 78],
-          [310, 141],
-          [310, 168],
+          [310, 132],
+          [310, 162],
           [313, 241],
           [318, 283],
           [337, 328],
@@ -272,38 +306,14 @@ export const RAW_PATHS = {
         points: [
           [336, 0],
           [336, 77],
-          [335, 142],
-          [336, 167],
+          [336, 132],
+          [336, 160],
           [338, 238],
           [345, 284],
           [375, 325],
           [425, 355],
           [547, 350],
           [640, 350],
-        ],
-        stopIdx: 3,
-        detectIdx: 2,
-      },
-    ],
-  },
-  22: {
-    entityType: "bike",
-    color: "#16a085",
-    desc: "Fiets Oost",
-    variants: [
-      {
-        id: "south-north",
-        desc: "E arm S->N",
-        points: [
-          [422, 640],
-          [421, 527],
-          [421, 434],
-          [421, 400],
-          [420, 327],
-          [420, 252],
-          [420, 235],
-          [401, 213],
-          [401, 161],
         ],
         stopIdx: 3,
         detectIdx: 2,
@@ -418,6 +428,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
+        nextSignalId: "32.1",
       },
     ],
   },
@@ -436,6 +447,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
+        nextSignalId: "32.1",
       },
     ],
   },
@@ -474,6 +486,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 2,
         detectIdx: 1,
+        nextSignalId: "31.1",
       },
     ],
   },
@@ -492,6 +505,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
+        nextSignalId: "36.1",
       },
     ],
   },
@@ -510,6 +524,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
+        nextSignalId: "36.1",
       },
     ],
   },
@@ -547,6 +562,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 2,
         detectIdx: 1,
+        nextSignalId: "35.1",
       },
     ],
   },
@@ -584,6 +600,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 2,
         detectIdx: 1,
+        nextSignalId: "38.1",
       },
     ],
   },
@@ -602,6 +619,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
+        nextSignalId: "37.1",
       },
     ],
   },
@@ -620,6 +638,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
+        nextSignalId: "37.1",
       },
     ],
   },
@@ -651,6 +670,15 @@ export const SPECIAL_LIGHTS = {
   [RAIL_SIGNAL_ID]: { desc: "Rail crossing", cat: "train" },
 };
 
+export const CONTINUATION_ONLY_PEDESTRIAN_IDS = [
+  "31.1",
+  "32.1",
+  "35.1",
+  "36.1",
+  "37.1",
+  "38.1",
+];
+
 export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
   const normalized = {};
 
@@ -669,6 +697,7 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
             stopIdx: variant.stopIdx,
             detectIdx: variant.detectIdx,
             entityType: variant.entityType || entityType,
+            nextSignalId: variant.nextSignalId || raw.nextSignalId || null,
           }))
         : [
             {
@@ -679,6 +708,7 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
               stopIdx: raw.stopIdx,
               detectIdx: raw.detectIdx,
               entityType,
+              nextSignalId: raw.nextSignalId || null,
             },
           ];
 
@@ -696,11 +726,13 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
 
 export function getSignalIds(
   rawPaths = RAW_PATHS,
-  { includeRail = false, entityTypes = null } = {},
+  { includeRail = false, entityTypes = null, excludeIds = [] } = {},
 ) {
   const allowedTypes = entityTypes ? new Set(entityTypes) : null;
+  const excluded = new Set(excludeIds);
   return Object.entries(normalizePathDefinitions(rawPaths))
     .filter(([id, signal]) => includeRail || id !== RAIL_SIGNAL_ID)
+    .filter(([id]) => !excluded.has(id))
     .filter(
       ([, signal]) => !allowedTypes || allowedTypes.has(signal.entityType),
     )

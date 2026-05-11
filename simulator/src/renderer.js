@@ -194,7 +194,6 @@ function drawCars(ctx) {
 function drawBike(ctx, bike) {
   ctx.save();
   ctx.translate(bike.x, bike.y);
-  ctx.rotate(bike.angle);
 
   ctx.strokeStyle = '#0b6b57';
   ctx.lineWidth = 1.5;
@@ -219,7 +218,6 @@ function drawBike(ctx, bike) {
 function drawPedestrian(ctx, pedestrian) {
   ctx.save();
   ctx.translate(pedestrian.x, pedestrian.y);
-  ctx.rotate(pedestrian.angle);
 
   ctx.fillStyle = pedestrian.path.color || '#7bdcb5';
   ctx.beginPath();

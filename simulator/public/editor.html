@@ -70,6 +70,7 @@
       </div>
       <div id="variant-buttons"></div>
       <div class="row"><span>Variant desc</span><input id="variant-desc"></div>
+      <div class="row"><span>Next signal</span><input id="variant-next" placeholder="optional"></div>
 
       <h3>Waypoints</h3>
       <div class="actions">
@@ -110,6 +111,12 @@
     const pathData = structuredClone(normalizePathDefinitions(RAW_PATHS));
     const railLayout = structuredClone(RAIL_LAYOUT);
 
+    if (import.meta.hot) {
+      import.meta.hot.accept('/src/paths.js', () => {
+        window.location.reload();
+      });
+    }
+
     const SPECIAL_ITEMS = {
       crossing: { label: 'Crossing line', color: '#cccccc' },
       signal: { label: 'sb signal', color: '#ffffff' },
@@ -135,6 +142,7 @@
     const signalTypeInput = document.getElementById('signal-type');
     const signalColorInput = document.getElementById('signal-color');
     const variantDescInput = document.getElementById('variant-desc');
+    const variantNextInput = document.getElementById('variant-next');
     const outputEl = document.getElementById('output');
 
     function getSignals() {
@@ -244,6 +252,7 @@
       signalTypeInput.value = signal.entityType || 'car';
       signalColorInput.value = signal.color;
       variantDescInput.value = variant.desc || '';
+      variantNextInput.value = variant.nextSignalId || '';
 
       wpListEl.innerHTML = variant.points.map((pt, i) => {
         let tags = '';
@@ -506,7 +515,14 @@
           entityType: signal.entityType || 'car',
           color: signal.color,
           desc: signal.desc,
-          variants: signal.variants.map(v => ({ id: v.id, desc: v.desc, points: v.points, stopIdx: v.stopIdx, detectIdx: v.detectIdx })),
+          variants: signal.variants.map(v => ({
+            id: v.id,
+            desc: v.desc,
+            points: v.points,
+            stopIdx: v.stopIdx,
+            detectIdx: v.detectIdx,
+            ...(v.nextSignalId ? { nextSignalId: v.nextSignalId } : {}),
+          })),
         };
       }
       return { RAW_PATHS: raw, RAIL_LAYOUT: railLayout };
@@ -522,7 +538,7 @@
     }
 
     function extractAssignedObject(text, name) {
-      const assignment = new RegExp(`${name}\\s*=`);
+      const assignment = new RegExp(`(?:export\\s+const\\s+)?${name}\\s*=`);
       const match = assignment.exec(text);
       if (!match) return null;
 
@@ -564,21 +580,87 @@
       return null;
     }
 
+    function parseObjectLiteral(source, label) {
+      try {
+        return JSON.parse(source);
+      } catch (jsonError) {
+        try {
+          return Function(`"use strict"; return (${source});`)();
+        } catch (jsError) {
+          throw new Error(`${label} is not valid JSON or JavaScript object literal: ${jsError.message}`);
+        }
+      }
+    }
+
+    function parseImportText(text) {
+      try {
+        return JSON.parse(text);
+      } catch (jsonError) {
+        const rawObject = extractAssignedObject(text, 'RAW_PATHS');
+        const railObject = extractAssignedObject(text, 'RAIL_LAYOUT');
+        if (!rawObject && !railObject) {
+          throw jsonError;
+        }
+        return {
+          RAW_PATHS: rawObject ? parseObjectLiteral(rawObject, 'RAW_PATHS') : undefined,
+          RAIL_LAYOUT: railObject ? parseObjectLiteral(railObject, 'RAIL_LAYOUT') : undefined,
+        };
+      }
+    }
+
+    function validateRawPaths(rawPaths) {
+      if (!rawPaths || typeof rawPaths !== 'object' || Array.isArray(rawPaths)) {
+        throw new Error('Import must contain a RAW_PATHS object.');
+      }
+
+      const entries = Object.entries(rawPaths);
+      if (!entries.length) {
+        throw new Error('RAW_PATHS is empty.');
+      }
+
+      for (const [signalId, raw] of entries) {
+        const variants = Array.isArray(raw?.variants) ? raw.variants : [raw];
+        if (!variants.length) {
+          throw new Error(`${signalId} has no variants.`);
+        }
+
+        for (const variant of variants) {
+          if (!Array.isArray(variant.points) || variant.points.length < 2) {
+            throw new Error(`${signalId} has a variant without at least two points.`);
+          }
+          for (const point of variant.points) {
+            if (!Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite)) {
+              throw new Error(`${signalId} has an invalid point.`);
+            }
+          }
+          if (!Number.isInteger(variant.detectIdx) || !Number.isInteger(variant.stopIdx)) {
+            throw new Error(`${signalId} has invalid detectIdx/stopIdx metadata.`);
+          }
+          if (variant.detectIdx < 0 || variant.detectIdx >= variant.points.length || variant.stopIdx < 0 || variant.stopIdx >= variant.points.length) {
+            throw new Error(`${signalId} has detectIdx/stopIdx outside its point list.`);
+          }
+        }
+      }
+    }
+
+    function validateRailLayout(layout) {
+      if (!layout) return;
+      for (const key of Object.keys(SPECIAL_ITEMS)) {
+        if (!layout[key]) continue;
+        if (!Array.isArray(layout[key].points) || !layout[key].points.every((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite))) {
+          throw new Error(`RAIL_LAYOUT.${key} has invalid points.`);
+        }
+      }
+    }
+
     function importJson() {
       const text = outputEl.value.trim();
       try {
-        let parsed;
-        if (text.includes('RAW_PATHS')) {
-          const rawObject = extractAssignedObject(text, 'RAW_PATHS');
-          const railObject = extractAssignedObject(text, 'RAIL_LAYOUT');
-          parsed = {
-            RAW_PATHS: rawObject ? JSON.parse(rawObject) : {},
-            RAIL_LAYOUT: railObject ? JSON.parse(railObject) : null,
-          };
-        } else {
-          parsed = JSON.parse(text);
-        }
-        const normalized = normalizePathDefinitions(parsed.RAW_PATHS || parsed);
+        const parsed = parseImportText(text);
+        const rawPaths = parsed.RAW_PATHS || parsed;
+        validateRawPaths(rawPaths);
+        validateRailLayout(parsed.RAIL_LAYOUT);
+        const normalized = normalizePathDefinitions(rawPaths);
         for (const key of Object.keys(pathData)) delete pathData[key];
         Object.assign(pathData, normalized);
         if (parsed.RAIL_LAYOUT) {
@@ -599,7 +681,7 @@
       const desc = prompt('Description:', id) || id;
       const entityType = prompt('Entity type (car, bike, pedestrian):', 'car') || 'car';
       const color = prompt('Color hex:', '#888888') || '#888888';
-      pathData[id] = { signalId: id, desc, entityType, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0 }] };
+      pathData[id] = { signalId: id, desc, entityType, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null }] };
       activeSignal = id;
       activeVariant = 'main';
       activeSpecial = null;
@@ -634,7 +716,7 @@
       const id = prompt('Variant ID:', `route${signal.variants.length + 1}`);
       if (!id || signal.variants.some(v => v.id === id)) return;
       const desc = prompt('Variant description:', signal.desc) || signal.desc;
-      signal.variants.push({ id, desc, points: [], detectIdx: 0, stopIdx: 0 });
+      signal.variants.push({ id, desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null });
       activeVariant = id;
       refresh();
     });
@@ -661,6 +743,7 @@
     signalTypeInput.addEventListener('change', () => { const signal = getActiveSignal(); if (signal) { signal.entityType = signalTypeInput.value; refresh(); } });
     signalColorInput.addEventListener('input', () => { const signal = getActiveSignal(); if (signal) { signal.color = signalColorInput.value; refresh(); } });
     variantDescInput.addEventListener('input', () => { const variant = getActiveVariantObj(); if (variant) { variant.desc = variantDescInput.value; refresh(); } });
+    variantNextInput.addEventListener('input', () => { const variant = getActiveVariantObj(); if (variant) { variant.nextSignalId = variantNextInput.value.trim() || null; refresh(); } });
     document.getElementById('set-detect-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.detectIdx = selectedWp; refresh(); } });
     document.getElementById('set-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.stopIdx = selectedWp; refresh(); } });
     document.getElementById('clear-variant-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.points = []; variant.detectIdx = 0; variant.stopIdx = 0; selectedWp = -1; refresh(); } });

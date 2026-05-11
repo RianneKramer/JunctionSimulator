@@ -10,7 +10,7 @@ import { normalizePathDefinitions } from './paths.js';
 /**
  * Build a computed path from raw waypoint data.
  *
- * @param {Object} raw - { points, stopIdx, detectIdx, color, desc, entityType }
+ * @param {Object} raw - { points, stopIdx, detectIdx, color, desc, entityType, nextSignalId }
  * @returns {Object} computed path with distance arrays
  */
 export function buildPath(raw) {
@@ -32,6 +32,7 @@ export function buildPath(raw) {
     color: raw.color,
     desc: raw.desc,
     entityType: raw.entityType || "car",
+    nextSignalId: raw.nextSignalId || null,
     stopIdx: raw.stopIdx,
     detectIdx: raw.detectIdx,
   };
