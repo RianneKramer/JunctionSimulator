@@ -6,8 +6,8 @@
  * before that timestamp; only the t=0 timestamp is sent to the controller.
  */
 
-import { RAIL_LAYOUT } from './paths.js';
-import { buildPath, posAt } from './pathMath.js';
+import { RAIL_LAYOUT } from "./paths.js";
+import { buildPath, posAt } from "./pathMath.js";
 
 let trainIntervalMs = 90000;
 let trainWarningMs = 5000;
@@ -46,14 +46,14 @@ function getRaisingStartOffsetMs() {
 }
 
 function getPhaseAt(now, arrivalAt) {
-  if (!arrivalAt) return 'waiting';
+  if (!arrivalAt) return "waiting";
   const elapsed = now - getProcedureStartAt(arrivalAt);
-  if (elapsed < 0) return 'waiting';
-  if (elapsed < trainWarningMs) return 'warning';
-  if (elapsed < getPreArrivalDurationMs()) return 'lowering';
-  if (elapsed < getPreArrivalDurationMs() + trainClosedMs) return 'closed';
-  if (elapsed < getProcedureDurationMs()) return 'raising';
-  return 'waiting';
+  if (elapsed < 0) return "waiting";
+  if (elapsed < trainWarningMs) return "warning";
+  if (elapsed < getPreArrivalDurationMs()) return "lowering";
+  if (elapsed < getPreArrivalDurationMs() + trainClosedMs) return "closed";
+  if (elapsed < getProcedureDurationMs()) return "raising";
+  return "waiting";
 }
 
 function normalizePositiveMs(value, fallback) {
@@ -61,13 +61,26 @@ function normalizePositiveMs(value, fallback) {
 }
 
 function getTrainLengthPx() {
-  return TRAIN_CABIN_LENGTH / 2 + (TRAIN_CABIN_COUNT - 1) * TRAIN_CABIN_SPACING + TRAIN_CABIN_LENGTH / 2;
+  return (
+    TRAIN_CABIN_LENGTH / 2 +
+    (TRAIN_CABIN_COUNT - 1) * TRAIN_CABIN_SPACING +
+    TRAIN_CABIN_LENGTH / 2
+  );
 }
 
 function buildExtendedTrainPath() {
   const rawPoints = structuredClone(RAIL_LAYOUT.trainPath.points);
   if (rawPoints.length < 2) {
-    return buildPath({ points: [[0, 0], [1, 0]], stopIdx: 1, detectIdx: 0, color: '#5dade2', desc: 'train' });
+    return buildPath({
+      points: [
+        [0, 0],
+        [1, 0],
+      ],
+      stopIdx: 1,
+      detectIdx: 0,
+      color: "#5dade2",
+      desc: "train",
+    });
   }
 
   const n = rawPoints.length - 1;
@@ -89,8 +102,8 @@ function buildExtendedTrainPath() {
     points: rawPoints,
     stopIdx: Math.max(1, rawPoints.length - 1),
     detectIdx: Math.max(0, rawPoints.length - 2),
-    color: '#5dade2',
-    desc: 'train',
+    color: "#5dade2",
+    desc: "train",
   });
 }
 
@@ -101,9 +114,15 @@ function ensureScheduled(now = Date.now()) {
 }
 
 export function configureTrain(options = {}) {
-  trainIntervalMs = normalizePositiveMs(options.trainIntervalMs, trainIntervalMs);
+  trainIntervalMs = normalizePositiveMs(
+    options.trainIntervalMs,
+    trainIntervalMs,
+  );
   trainWarningMs = normalizePositiveMs(options.trainWarningMs, trainWarningMs);
-  trainLoweringMs = normalizePositiveMs(options.trainLoweringMs, trainLoweringMs);
+  trainLoweringMs = normalizePositiveMs(
+    options.trainLoweringMs,
+    trainLoweringMs,
+  );
   trainClosedMs = normalizePositiveMs(options.trainClosedMs, trainClosedMs);
   trainRaisingMs = normalizePositiveMs(options.trainRaisingMs, trainRaisingMs);
   ensureScheduled();
@@ -116,18 +135,25 @@ export function scheduleTrainAfter(delayMs) {
 }
 
 export function triggerTrainSoon() {
-  scheduleTrainAfter(3000);
+  scheduleTrainAfter(25);
 }
 
 export function tickTrainSchedule(now = Date.now()) {
   ensureScheduled(now);
 
-  if (!currentTrainArrivalAt && nextTrainArrivalAt && now >= getProcedureStartAt(nextTrainArrivalAt)) {
+  if (
+    !currentTrainArrivalAt &&
+    nextTrainArrivalAt &&
+    now >= getProcedureStartAt(nextTrainArrivalAt)
+  ) {
     currentTrainArrivalAt = nextTrainArrivalAt;
     nextTrainArrivalAt = 0;
   }
 
-  if (currentTrainArrivalAt && now >= getProcedureEndAt(currentTrainArrivalAt)) {
+  if (
+    currentTrainArrivalAt &&
+    now >= getProcedureEndAt(currentTrainArrivalAt)
+  ) {
     const previousArrivalAt = currentTrainArrivalAt;
     currentTrainArrivalAt = 0;
     nextTrainArrivalAt = previousArrivalAt + trainIntervalMs;
@@ -146,10 +172,18 @@ export function getTrainScheduleState(now = Date.now()) {
   tickTrainSchedule(now);
 
   const procedureDurationMs = getProcedureDurationMs();
-  const closedStartAt = currentTrainArrivalAt ? currentTrainArrivalAt + getClosedStartOffsetMs() : 0;
-  const closedUntil = currentTrainArrivalAt ? currentTrainArrivalAt + getRaisingStartOffsetMs() : 0;
-  const procedureStartAt = currentTrainArrivalAt ? getProcedureStartAt(currentTrainArrivalAt) : 0;
-  const redUntil = currentTrainArrivalAt ? getProcedureEndAt(currentTrainArrivalAt) : 0;
+  const closedStartAt = currentTrainArrivalAt
+    ? currentTrainArrivalAt + getClosedStartOffsetMs()
+    : 0;
+  const closedUntil = currentTrainArrivalAt
+    ? currentTrainArrivalAt + getRaisingStartOffsetMs()
+    : 0;
+  const procedureStartAt = currentTrainArrivalAt
+    ? getProcedureStartAt(currentTrainArrivalAt)
+    : 0;
+  const redUntil = currentTrainArrivalAt
+    ? getProcedureEndAt(currentTrainArrivalAt)
+    : 0;
   const phase = getPhaseAt(now, currentTrainArrivalAt);
   const activeArrival = currentTrainArrivalAt || nextTrainArrivalAt;
   const untilArrival = activeArrival ? activeArrival - now : 0;
@@ -171,7 +205,7 @@ export function getTrainScheduleState(now = Date.now()) {
     untilArrival,
     phase,
     isProcedureActive: !!currentTrainArrivalAt,
-    isCrossing: phase === 'closed',
+    isCrossing: phase === "closed",
     cabinCount: TRAIN_CABIN_COUNT,
     cabinSpacing: TRAIN_CABIN_SPACING,
     cabinLength: TRAIN_CABIN_LENGTH,
@@ -182,7 +216,7 @@ export function getTrainRenderState(now = Date.now()) {
   tickTrainSchedule(now);
 
   const phase = getPhaseAt(now, currentTrainArrivalAt);
-  if (phase !== 'closed') {
+  if (phase !== "closed") {
     return {
       visible: false,
       x: 0,
@@ -198,7 +232,10 @@ export function getTrainRenderState(now = Date.now()) {
 
   const closedStartAt = currentTrainArrivalAt + getClosedStartOffsetMs();
   const elapsed = now - closedStartAt;
-  const progress = Math.min(1, Math.max(0, elapsed / Math.max(1, trainClosedMs)));
+  const progress = Math.min(
+    1,
+    Math.max(0, elapsed / Math.max(1, trainClosedMs)),
+  );
   const trainPath = buildExtendedTrainPath();
   const noseDist = trainPath.totalLength * progress;
   const nose = posAt(trainPath, noseDist);
