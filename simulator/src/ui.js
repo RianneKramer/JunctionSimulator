@@ -120,8 +120,7 @@ export function updatePanel(lightStates, connected) {
   if (trainStatus) {
     const now = Date.now();
     if (trainState.phase === 'warning') {
-      const loweringAt = trainState.currentArrivalAt + trainState.trainWarningMs;
-      trainStatus.textContent = `Warning | barriers lowering in ${secondsUntil(loweringAt, now)}s`;
+      trainStatus.textContent = `Warning | barriers lowering in ${secondsUntil(trainState.loweringStartAt, now)}s`;
     } else if (trainState.phase === 'lowering') {
       trainStatus.textContent = `Barriers lowering | closed in ${secondsUntil(trainState.closedStartAt, now)}s`;
     } else if (trainState.phase === 'closed') {

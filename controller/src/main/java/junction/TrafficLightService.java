@@ -70,8 +70,10 @@ public class TrafficLightService {
         }
 
         long activeFrom = trainArrivalTimestamp - getTrainPreArrivalDurationMs();
-        long redUntil = trainArrivalTimestamp + trainClosedMs + trainRaisingMs;
-        boolean active = currentTimestamp >= activeFrom && currentTimestamp < redUntil;
+        long loweringFrom = trainArrivalTimestamp - trainLoweringMs;
+        long closedUntil = trainArrivalTimestamp + trainClosedMs;
+        long activeUntil = closedUntil + trainRaisingMs;
+        boolean active = currentTimestamp >= activeFrom && currentTimestamp < activeUntil;
 
         entityPresence.put(TRAIN_SIGNAL_ID, active);
         triggeredTimestamps.put(TRAIN_SIGNAL_ID, trainArrivalTimestamp);
@@ -89,7 +91,13 @@ public class TrafficLightService {
             }
         }
 
-        setState(TRAIN_SIGNAL_ID, 0, currentTimestamp);
+        if (currentTimestamp < loweringFrom) {
+            setState(TRAIN_SIGNAL_ID, 1, currentTimestamp);
+        } else if (currentTimestamp < closedUntil) {
+            setState(TRAIN_SIGNAL_ID, 0, currentTimestamp);
+        } else {
+            setState(TRAIN_SIGNAL_ID, 1, currentTimestamp);
+        }
         return true;
     }
 

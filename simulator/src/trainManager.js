@@ -135,7 +135,7 @@ export function scheduleTrainAfter(delayMs) {
 }
 
 export function triggerTrainSoon() {
-  scheduleTrainAfter(25);
+  scheduleTrainAfter(getPreArrivalDurationMs() + 5000);
 }
 
 export function tickTrainSchedule(now = Date.now()) {
@@ -181,6 +181,9 @@ export function getTrainScheduleState(now = Date.now()) {
   const procedureStartAt = currentTrainArrivalAt
     ? getProcedureStartAt(currentTrainArrivalAt)
     : 0;
+  const loweringStartAt = procedureStartAt
+    ? procedureStartAt + trainWarningMs
+    : 0;
   const redUntil = currentTrainArrivalAt
     ? getProcedureEndAt(currentTrainArrivalAt)
     : 0;
@@ -192,6 +195,7 @@ export function getTrainScheduleState(now = Date.now()) {
     nextArrivalAt: nextTrainArrivalAt,
     currentArrivalAt: currentTrainArrivalAt,
     procedureStartAt,
+    loweringStartAt,
     currentActiveUntil: redUntil,
     closedStartAt,
     closedUntil,
