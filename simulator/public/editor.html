@@ -32,6 +32,7 @@
     .wp-row .tag { font-size: 9px; padding: 1px 4px; border-radius: 2px; }
     .wp-row .tag.detect { background: #f39c12; color: #000; }
     .wp-row .tag.stop { background: #e74c3c; color: #fff; }
+    .wp-row .tag.rail-stop { background: #3498db; color: #fff; }
     textarea { width: 100%; height: 220px; background: #0a0a1a; color: #0f0; border: 1px solid #333; border-radius: 4px; padding: 6px; font-family: monospace; font-size: 10px; resize: vertical; }
     .help { font-size: 10px; color: #666; line-height: 1.5; margin-top: 8px; }
   </style>
@@ -76,6 +77,8 @@
       <div class="actions">
         <button class="btn-secondary" id="set-detect-btn">Set Detect</button>
         <button class="btn-secondary" id="set-stop-btn">Set Stop</button>
+        <button class="btn-secondary" id="set-rail-stop-btn">Set Rail Stop</button>
+        <button class="btn-secondary" id="clear-rail-stop-btn">Clear Rail Stop</button>
         <button class="btn-warn" id="clear-variant-btn">Clear Variant</button>
       </div>
       <div class="wp-list" id="wp-list"></div>
@@ -258,6 +261,7 @@
         let tags = '';
         if (i === variant.detectIdx) tags += '<span class="tag detect">DETECT</span> ';
         if (i === variant.stopIdx) tags += '<span class="tag stop">STOP</span> ';
+        if (i === variant.railStopIdx) tags += '<span class="tag rail-stop">SB</span> ';
         const sel = i === selectedWp ? 'background:rgba(233,69,96,0.2);' : '';
         return `<div class="wp-row" style="${sel}" data-select="${i}"><span class="idx">${i}</span><span class="coord">[${pt[0]}, ${pt[1]}]</span>${tags}<button data-delete="${i}">x</button></div>`;
       }).join('');
@@ -328,6 +332,8 @@
       variant.points.splice(idx, 1);
       if (variant.detectIdx >= idx && variant.detectIdx > 0) variant.detectIdx--;
       if (variant.stopIdx >= idx && variant.stopIdx > 0) variant.stopIdx--;
+      if (variant.railStopIdx === idx) variant.railStopIdx = null;
+      if (variant.railStopIdx > idx) variant.railStopIdx--;
       if (selectedWp >= variant.points.length) selectedWp = variant.points.length - 1;
       refresh();
     }
@@ -371,6 +377,7 @@
         variant.points.splice(insertIdx, 0, [pos.x, pos.y]);
         if (variant.detectIdx >= insertIdx) variant.detectIdx++;
         if (variant.stopIdx >= insertIdx) variant.stopIdx++;
+        if (variant.railStopIdx >= insertIdx) variant.railStopIdx++;
         selectedWp = insertIdx;
         refresh();
       }
@@ -484,6 +491,7 @@
             let fillColor = signal.color;
             if (i === variant.detectIdx) fillColor = '#f1c40f';
             if (i === variant.stopIdx) fillColor = '#ff0000';
+            if (i === variant.railStopIdx) fillColor = '#3498db';
             ctx.beginPath();
             ctx.arc(pt[0], pt[1], r, 0, Math.PI * 2);
             ctx.fillStyle = fillColor;
@@ -522,6 +530,7 @@
             stopIdx: v.stopIdx,
             detectIdx: v.detectIdx,
             ...(v.nextSignalId ? { nextSignalId: v.nextSignalId } : {}),
+            ...(Number.isInteger(v.railStopIdx) ? { railStopIdx: v.railStopIdx } : {}),
           })),
         };
       }
@@ -639,6 +648,9 @@
           if (variant.detectIdx < 0 || variant.detectIdx >= variant.points.length || variant.stopIdx < 0 || variant.stopIdx >= variant.points.length) {
             throw new Error(`${signalId} has detectIdx/stopIdx outside its point list.`);
           }
+          if (variant.railStopIdx !== undefined && variant.railStopIdx !== null && (!Number.isInteger(variant.railStopIdx) || variant.railStopIdx < 0 || variant.railStopIdx >= variant.points.length)) {
+            throw new Error(`${signalId} has railStopIdx outside its point list.`);
+          }
         }
       }
     }
@@ -681,7 +693,7 @@
       const desc = prompt('Description:', id) || id;
       const entityType = prompt('Entity type (car, bike, pedestrian):', 'car') || 'car';
       const color = prompt('Color hex:', '#888888') || '#888888';
-      pathData[id] = { signalId: id, desc, entityType, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null }] };
+      pathData[id] = { signalId: id, desc, entityType, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null, railStopIdx: null }] };
       activeSignal = id;
       activeVariant = 'main';
       activeSpecial = null;
@@ -716,7 +728,7 @@
       const id = prompt('Variant ID:', `route${signal.variants.length + 1}`);
       if (!id || signal.variants.some(v => v.id === id)) return;
       const desc = prompt('Variant description:', signal.desc) || signal.desc;
-      signal.variants.push({ id, desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null });
+      signal.variants.push({ id, desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null, railStopIdx: null });
       activeVariant = id;
       refresh();
     });
@@ -746,7 +758,9 @@
     variantNextInput.addEventListener('input', () => { const variant = getActiveVariantObj(); if (variant) { variant.nextSignalId = variantNextInput.value.trim() || null; refresh(); } });
     document.getElementById('set-detect-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.detectIdx = selectedWp; refresh(); } });
     document.getElementById('set-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.stopIdx = selectedWp; refresh(); } });
-    document.getElementById('clear-variant-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.points = []; variant.detectIdx = 0; variant.stopIdx = 0; selectedWp = -1; refresh(); } });
+    document.getElementById('set-rail-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.railStopIdx = selectedWp; refresh(); } });
+    document.getElementById('clear-rail-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.railStopIdx = null; refresh(); } });
+    document.getElementById('clear-variant-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.points = []; variant.detectIdx = 0; variant.stopIdx = 0; variant.railStopIdx = null; selectedWp = -1; refresh(); } });
 
     document.getElementById('export-json-btn').addEventListener('click', exportJson);
     document.getElementById('export-code-btn').addEventListener('click', exportCode);

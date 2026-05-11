@@ -6,6 +6,7 @@
  */
 
 import { posAt, getSignalVariantKeys } from './pathMath.js';
+import { RAIL_SIGNAL_ID } from './paths.js';
 
 const CAR_LENGTH = 20;
 const CAR_WIDTH = 10;
@@ -158,6 +159,12 @@ export function updateEntity(entity, lightStates, paths) {
     }
   }
 
+  if (shouldStopForRail(entity, lightStates)) {
+    entity.dist = entity.path.railStopDist - 1;
+    syncPosition(entity);
+    return;
+  }
+
   const ahead = findCarAhead(entity);
   if (ahead && (ahead.dist - entity.dist) < entity.minGap) {
     syncPosition(entity);
@@ -178,6 +185,15 @@ export function updateEntity(entity, lightStates, paths) {
     return;
   }
   syncPosition(entity);
+}
+
+function shouldStopForRail(entity, lightStates) {
+  if (!isVulnerableRoadUser(entity)) return false;
+  if (!Number.isFinite(entity.path.railStopDist)) return false;
+  if (isSignalGreen(RAIL_SIGNAL_ID, lightStates)) return false;
+  if (entity.dist >= entity.path.railStopDist) return false;
+
+  return entity.dist + entity.speed >= entity.path.railStopDist;
 }
 
 function transitionToNextPath(entity, paths) {

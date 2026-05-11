@@ -19,7 +19,7 @@ export const RAW_PATHS = {
         desc: "E arm S->N",
         points: [
           [422, 640],
-          [421, 527],
+          [422, 516],
           [421, 434],
           [421, 400],
           [420, 327],
@@ -30,6 +30,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 3,
         detectIdx: 2,
+        railStopIdx: 1,
       },
     ],
   },
@@ -343,6 +344,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 3,
         detectIdx: 2,
+        railStopIdx: 8,
       },
     ],
   },
@@ -378,7 +380,8 @@ export const RAW_PATHS = {
         id: "north-south",
         desc: "SW crossing N->S",
         points: [
-          [301, 637],
+          [296, 637],
+          [295, 512],
           [296, 395],
           [273, 372],
           [248, 363],
@@ -386,8 +389,9 @@ export const RAW_PATHS = {
           [222, 210],
           [222, 114],
         ],
-        stopIdx: 4,
-        detectIdx: 3,
+        stopIdx: 5,
+        detectIdx: 4,
+        railStopIdx: 1,
       },
     ],
   },
@@ -467,6 +471,7 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
+        railStopIdx: 2,
       },
     ],
   },
@@ -480,13 +485,15 @@ export const RAW_PATHS = {
         desc: "E crossing N->S outer",
         points: [
           [433, 550],
+          [433, 513],
           [433, 416],
           [433, 397],
           [433, 334],
         ],
-        stopIdx: 2,
-        detectIdx: 1,
+        stopIdx: 3,
+        detectIdx: 2,
         nextSignalId: "31.1",
+        railStopIdx: 1,
       },
     ],
   },
@@ -698,6 +705,9 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
             detectIdx: variant.detectIdx,
             entityType: variant.entityType || entityType,
             nextSignalId: variant.nextSignalId || raw.nextSignalId || null,
+            railStopIdx: Number.isInteger(variant.railStopIdx)
+              ? variant.railStopIdx
+              : raw.railStopIdx,
           }))
         : [
             {
@@ -709,6 +719,7 @@ export function normalizePathDefinitions(rawPaths = RAW_PATHS) {
               detectIdx: raw.detectIdx,
               entityType,
               nextSignalId: raw.nextSignalId || null,
+              railStopIdx: raw.railStopIdx,
             },
           ];
 
