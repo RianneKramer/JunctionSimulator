@@ -22,6 +22,7 @@ export function buildPanel(container, paths) {
     entityTypes: ['pedestrian'],
     excludeIds: CONTINUATION_ONLY_PEDESTRIAN_IDS,
   });
+  const bulkSpawnSignalIds = [...carSignalIds, ...bikeSignalIds, ...pedestrianSignalIds];
 
   html += '<h3>Auto (Spawn Cars)</h3>';
   for (const signalId of carSignalIds) {
@@ -63,6 +64,10 @@ export function buildPanel(container, paths) {
     html += animatedRequestRow(signalId, raw.desc);
   }
 
+  html += `
+    <h3>Bulk Spawn</h3>
+    <button class="bulk-spawn-btn" id="bulk-spawn-btn">Spawn 2-5 at every light</button>`;
+
   container.innerHTML = html;
 
   container.querySelectorAll('[data-spawn]').forEach((btn) => {
@@ -82,6 +87,15 @@ export function buildPanel(container, paths) {
 
   document.getElementById('train-btn')?.addEventListener('click', () => {
     triggerTrainSoon();
+  });
+
+  document.getElementById('bulk-spawn-btn')?.addEventListener('click', () => {
+    for (const signalId of bulkSpawnSignalIds) {
+      const count = 2 + Math.floor(Math.random() * 4);
+      for (let i = 0; i < count; i++) {
+        spawnEntity(signalId, paths);
+      }
+    }
   });
 }
 

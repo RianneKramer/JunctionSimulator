@@ -59,11 +59,24 @@ public class ConfigHandler implements HttpHandler {
                 if (kv.length == 2) params.put(kv[0], kv[1]);
             }
             try {
-                long minGreen = Long.parseLong(params.getOrDefault("minGreenMs", "6000"));
+                long carMinGreen = Long.parseLong(params.getOrDefault("carMinGreenMs", params.getOrDefault("minGreenMs", "6000")));
+                long busMinGreen = Long.parseLong(params.getOrDefault("busMinGreenMs", "4000"));
+                long bikeMinGreen = Long.parseLong(params.getOrDefault("bikeMinGreenMs", "5000"));
+                long pedestrianMinGreen = Long.parseLong(params.getOrDefault("pedestrianMinGreenMs", "4000"));
                 long maxGreen = Long.parseLong(params.getOrDefault("maxGreenMs", "30000"));
-                long orange = Long.parseLong(params.getOrDefault("orangeMs", "3000"));
+                long orange = Long.parseLong(params.getOrDefault("orangeMs", "3500"));
                 long minRed = Long.parseLong(params.getOrDefault("minRedMs", "4000"));
-                service.setTimingConfig(minGreen, maxGreen, orange, minRed);
+                long maxCarRed = Long.parseLong(params.getOrDefault("maxCarRedMs", "120000"));
+                service.setTimingConfig(
+                        carMinGreen,
+                        busMinGreen,
+                        bikeMinGreen,
+                        pedestrianMinGreen,
+                        maxGreen,
+                        orange,
+                        minRed,
+                        maxCarRed
+                );
 
                 long trainWarning = Long.parseLong(params.getOrDefault("trainWarningMs", "5000"));
                 long trainLowering = Long.parseLong(params.getOrDefault("trainLoweringMs", "15000"));
@@ -88,7 +101,11 @@ public class ConfigHandler implements HttpHandler {
             <hr>
             <h3>Timing Settings</h3>
             <form method="POST">
-              <label>Min Green (ms): <input name="minGreenMs" value="%d" type="number"></label><br><br>
+              <label>Car min green (ms): <input name="carMinGreenMs" value="%d" type="number"></label><br><br>
+              <label>Bus min green (ms): <input name="busMinGreenMs" value="%d" type="number"></label><br><br>
+              <label>Bike min green (ms): <input name="bikeMinGreenMs" value="%d" type="number"></label><br><br>
+              <label>Pedestrian min green (ms): <input name="pedestrianMinGreenMs" value="%d" type="number"></label><br><br>
+              <label>Max car red wait (ms): <input name="maxCarRedMs" value="%d" type="number"></label><br><br>
               <label>Max Green (ms): <input name="maxGreenMs" value="%d" type="number"></label><br><br>
               <label>Orange (ms): <input name="orangeMs" value="%d" type="number"></label><br><br>
               <label>Min Red (ms): <input name="minRedMs" value="%d" type="number"></label><br><br>
@@ -101,7 +118,9 @@ public class ConfigHandler implements HttpHandler {
             </form>
             </body></html>
             """.formatted(localIps.stream().map(ip -> "<li>http://" + ip + ":" + port + "</li>").reduce("", (a, b) -> a + b),
-                cfg.get("minGreenMs"), cfg.get("maxGreenMs"),
+                cfg.get("carMinGreenMs"), cfg.get("busMinGreenMs"),
+                cfg.get("bikeMinGreenMs"), cfg.get("pedestrianMinGreenMs"),
+                cfg.get("maxCarRedMs"), cfg.get("maxGreenMs"),
                 cfg.get("orangeMs"), cfg.get("minRedMs"),
                 cfg.get("trainWarningMs"), cfg.get("trainLoweringMs"),
                 cfg.get("trainClosedMs"), cfg.get("trainRaisingMs"));
