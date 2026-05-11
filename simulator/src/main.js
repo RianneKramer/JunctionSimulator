@@ -60,7 +60,13 @@ async function controllerTick() {
 async function init() {
   const config = await loadConfig();
   urlInput.value = config.controllerUrl + config.endpoint;
-  configureTrain({ trainLeadMs: config.trainLeadMs, trainActiveMs: config.trainActiveMs });
+  configureTrain({
+    trainIntervalMs: config.trainIntervalMs,
+    trainWarningMs: config.trainWarningMs,
+    trainLoweringMs: config.trainLoweringMs,
+    trainClosedMs: config.trainClosedMs,
+    trainRaisingMs: config.trainRaisingMs,
+  });
 
   controllerTick();
   setInterval(controllerTick, config.postInterval);

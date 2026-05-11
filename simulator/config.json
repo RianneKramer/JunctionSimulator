@@ -1,8 +1,11 @@
 {
-  "controllerUrl": "http://141.252.43.198:8080",
+  "controllerUrl": "http://enphia.com",
   "endpoint": "/data",
   "postInterval": 1000,
   "spawnInterval": 5000,
-  "trainLeadMs": 5000,
-  "trainActiveMs": 6000
+  "trainIntervalMs": 90000,
+  "trainWarningMs": 5000,
+  "trainLoweringMs": 15000,
+  "trainClosedMs": 30000,
+  "trainRaisingMs": 15000
 }

@@ -44,7 +44,7 @@
   </div>
   <div class="panel">
     <h2>Path Editor</h2>
-    <div class="info" id="mode-info">Select a traffic light or SP layout element to edit.</div>
+    <div class="info" id="mode-info">Select a traffic light or sb layout element to edit.</div>
 
     <h3>Traffic Lights</h3>
     <div class="actions">
@@ -79,7 +79,7 @@
     </div>
 
     <div id="sp-section">
-      <h3>SP layout</h3>
+      <h3>sb layout</h3>
       <div id="special-buttons"></div>
       <div class="wp-list" id="special-list"></div>
     </div>
@@ -95,7 +95,7 @@
     <div class="help">
       <b>How to use:</b><br>
       Select a normal light to edit car/bus paths.<br>
-      Select an SP layout item to drag the rail crossing, the SP signal position, or the train path.<br>
+      Select an sb layout item to drag the rail crossing, the sb signal position, or the train path.<br>
       Export gives both <code>RAW_PATHS</code> and <code>RAIL_LAYOUT</code>.
     </div>
   </div>
@@ -110,7 +110,7 @@
 
     const SPECIAL_ITEMS = {
       crossing: { label: 'Crossing line', color: '#cccccc' },
-      signal: { label: 'SP signal', color: '#ffffff' },
+      signal: { label: 'sb signal', color: '#ffffff' },
       trainPath: { label: 'Train path', color: '#5dade2' },
     };
 
@@ -248,11 +248,11 @@
       updateEditPanel();
       updateSpecialPanel();
       if (activeSpecial) {
-        modeInfo.textContent = `Editing SP ${SPECIAL_ITEMS[activeSpecial].label}. Drag points directly on the canvas.`;
+        modeInfo.textContent = `Editing sb ${SPECIAL_ITEMS[activeSpecial].label}. Drag points directly on the canvas.`;
       } else if (activeSignal && activeVariant) {
         modeInfo.textContent = `Editing ${activeSignal} / ${activeVariant}. Click canvas to add waypoint. Drag to move. Right-click to delete.`;
       } else {
-        modeInfo.textContent = 'Select a traffic light or SP layout element to edit.';
+        modeInfo.textContent = 'Select a traffic light or sb layout element to edit.';
       }
       render();
     }

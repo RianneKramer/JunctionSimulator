@@ -6,12 +6,15 @@
  */
 
 const DEFAULT_CONFIG = {
-  controllerUrl: 'http://localhost:8080',
-  endpoint: '/data',
+  controllerUrl: "http://localhost:8080",
+  endpoint: "/data",
   postInterval: 3000,
   spawnInterval: 6000,
-  trainLeadMs: 5000,
-  trainActiveMs: 6000,
+  trainIntervalMs: 90000,
+  trainWarningMs: 5000,
+  trainLoweringMs: 15000,
+  trainClosedMs: 30000,
+  trainRaisingMs: 15000,
 };
 
 const CONFIG_RETRY_ATTEMPTS = 3;
@@ -28,7 +31,11 @@ function normalizeControllerUrl(fullUrl) {
   return parsed.origin;
 }
 
-async function fetchWithTimeout(url, options = {}, timeoutMs = CONFIG_TIMEOUT_MS) {
+async function fetchWithTimeout(
+  url,
+  options = {},
+  timeoutMs = CONFIG_TIMEOUT_MS,
+) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -45,16 +52,24 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = CONFIG_TIMEOUT_MS
 export async function loadConfig() {
   for (let attempt = 1; attempt <= CONFIG_RETRY_ATTEMPTS; attempt++) {
     try {
-      const resp = await fetchWithTimeout('/api/config');
+      const resp = await fetchWithTimeout("/api/config");
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
       const data = await resp.json();
       if (data.controllerUrl) {
         config.controllerUrl = normalizeControllerUrl(data.controllerUrl);
       }
-      config.endpoint = '/data';
+      config.endpoint = "/data";
 
-      const numericKeys = ['postInterval', 'spawnInterval', 'trainLeadMs', 'trainActiveMs'];
+      const numericKeys = [
+        "postInterval",
+        "spawnInterval",
+        "trainIntervalMs",
+        "trainWarningMs",
+        "trainLoweringMs",
+        "trainClosedMs",
+        "trainRaisingMs",
+      ];
       for (const key of numericKeys) {
         const value = Number(data[key]);
         if (Number.isFinite(value) && value > 0) {
@@ -76,14 +91,14 @@ export async function loadConfig() {
 }
 
 export async function setControllerUrl(fullUrl) {
-  const baseUrl = normalizeControllerUrl(fullUrl.replace(/\/data\/?$/, ''));
+  const baseUrl = normalizeControllerUrl(fullUrl.replace(/\/data\/?$/, ""));
   config.controllerUrl = baseUrl;
-  config.endpoint = '/data';
+  config.endpoint = "/data";
 
   try {
-    const resp = await fetchWithTimeout('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    const resp = await fetchWithTimeout("/api/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         controllerUrl: config.controllerUrl,
       }),
