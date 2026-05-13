@@ -5,13 +5,14 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: monospace; background: #1a1a2e; color: #eee; display: flex; height: 100vh; }
-    .canvas-panel { flex: 1; display: flex; align-items: center; justify-content: center; }
-    .canvas-wrap { position: relative; }
-    .canvas-wrap img { position: absolute; top: 0; left: 0; width: 640px; height: 640px; border-radius: 4px; }
-    canvas { position: relative; cursor: crosshair; border-radius: 4px; border: 1px solid #333; }
+    .canvas-panel { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .canvas-wrap { position: relative; width: clamp(640px, min(calc(100vh - 48px), calc(100vw - 470px)), 960px); aspect-ratio: 1; background: #fff; border-radius: 4px; overflow: hidden; }
+    .canvas-wrap img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+    canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: crosshair; border: 1px solid #333; }
     .panel { width: 390px; background: #16213e; padding: 12px; overflow-y: auto; border-left: 2px solid #0f3460; font-size: 12px; }
     .panel h2 { color: #e94560; font-size: 14px; margin-bottom: 8px; }
     .panel h3 { color: #888; font-size: 11px; margin: 10px 0 4px; text-transform: uppercase; }
+    .panel h4 { color: #aaa; font-size: 10px; margin: 8px 0 2px; text-transform: uppercase; letter-spacing: 0.5px; }
     .path-btn, .variant-btn, .special-btn { display: inline-block; padding: 4px 8px; margin: 2px; border: 2px solid #444; border-radius: 4px; cursor: pointer; font-size: 11px; background: #222; color: #aaa; }
     .path-btn.active, .variant-btn.active, .special-btn.active { border-color: #e94560; color: #fff; background: #333; }
     .path-btn .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
@@ -22,7 +23,7 @@
     .btn-secondary { background: #333; color: #aaa; }
     .btn-warn { background: #f39c12; border-color: #f39c12; color: #000; }
     .row { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
-    .row input { flex: 1; background: #0a0a1a; color: #fff; border: 1px solid #333; border-radius: 3px; padding: 4px 6px; font-family: monospace; font-size: 11px; }
+    .row input, .row select { flex: 1; background: #0a0a1a; color: #fff; border: 1px solid #333; border-radius: 3px; padding: 4px 6px; font-family: monospace; font-size: 11px; }
     .wp-list { max-height: 240px; overflow-y: auto; margin: 4px 0; }
     .wp-row { display: flex; align-items: center; gap: 4px; padding: 2px 4px; border-radius: 3px; font-size: 11px; }
     .wp-row:hover { background: rgba(255,255,255,0.05); }
@@ -31,6 +32,7 @@
     .wp-row .tag { font-size: 9px; padding: 1px 4px; border-radius: 2px; }
     .wp-row .tag.detect { background: #f39c12; color: #000; }
     .wp-row .tag.stop { background: #e74c3c; color: #fff; }
+    .wp-row .tag.rail-stop { background: #3498db; color: #fff; }
     textarea { width: 100%; height: 220px; background: #0a0a1a; color: #0f0; border: 1px solid #333; border-radius: 4px; padding: 6px; font-family: monospace; font-size: 10px; resize: vertical; }
     .help { font-size: 10px; color: #666; line-height: 1.5; margin-top: 8px; }
   </style>
@@ -38,13 +40,13 @@
 <body>
   <div class="canvas-panel">
     <div class="canvas-wrap">
-      <img src="intersection.png" alt="Junction">
+      <img src="/intersection-enhanced.png" alt="Junction">
       <canvas id="c" width="640" height="640"></canvas>
     </div>
   </div>
   <div class="panel">
     <h2>Path Editor</h2>
-    <div class="info" id="mode-info">Select a traffic light or SP layout element to edit.</div>
+    <div class="info" id="mode-info">Select a traffic light or sb layout element to edit.</div>
 
     <h3>Traffic Lights</h3>
     <div class="actions">
@@ -58,6 +60,7 @@
       <h3>Signal metadata</h3>
       <div class="row"><span>ID</span><input id="signal-id" disabled></div>
       <div class="row"><span>Desc</span><input id="signal-desc"></div>
+      <div class="row"><span>Type</span><select id="signal-type"><option value="car">car</option><option value="bike">bike</option><option value="pedestrian">pedestrian</option></select></div>
       <div class="row"><span>Color</span><input id="signal-color"></div>
 
       <h3>Variants</h3>
@@ -68,18 +71,21 @@
       </div>
       <div id="variant-buttons"></div>
       <div class="row"><span>Variant desc</span><input id="variant-desc"></div>
+      <div class="row"><span>Next signal</span><input id="variant-next" placeholder="optional"></div>
 
       <h3>Waypoints</h3>
       <div class="actions">
         <button class="btn-secondary" id="set-detect-btn">Set Detect</button>
         <button class="btn-secondary" id="set-stop-btn">Set Stop</button>
+        <button class="btn-secondary" id="set-rail-stop-btn">Set Rail Stop</button>
+        <button class="btn-secondary" id="clear-rail-stop-btn">Clear Rail Stop</button>
         <button class="btn-warn" id="clear-variant-btn">Clear Variant</button>
       </div>
       <div class="wp-list" id="wp-list"></div>
     </div>
 
     <div id="sp-section">
-      <h3>SP layout</h3>
+      <h3>sb layout</h3>
       <div id="special-buttons"></div>
       <div class="wp-list" id="special-list"></div>
     </div>
@@ -95,7 +101,7 @@
     <div class="help">
       <b>How to use:</b><br>
       Select a normal light to edit car/bus paths.<br>
-      Select an SP layout item to drag the rail crossing, the SP signal position, or the train path.<br>
+      Select an sb layout item to drag the rail crossing, the sb signal position, or the train path.<br>
       Export gives both <code>RAW_PATHS</code> and <code>RAIL_LAYOUT</code>.
     </div>
   </div>
@@ -108,9 +114,15 @@
     const pathData = structuredClone(normalizePathDefinitions(RAW_PATHS));
     const railLayout = structuredClone(RAIL_LAYOUT);
 
+    if (import.meta.hot) {
+      import.meta.hot.accept('/src/paths.js', () => {
+        window.location.reload();
+      });
+    }
+
     const SPECIAL_ITEMS = {
       crossing: { label: 'Crossing line', color: '#cccccc' },
-      signal: { label: 'SP signal', color: '#ffffff' },
+      signal: { label: 'sb signal', color: '#ffffff' },
       trainPath: { label: 'Train path', color: '#5dade2' },
     };
 
@@ -130,11 +142,21 @@
     const modeInfo = document.getElementById('mode-info');
     const signalIdInput = document.getElementById('signal-id');
     const signalDescInput = document.getElementById('signal-desc');
+    const signalTypeInput = document.getElementById('signal-type');
     const signalColorInput = document.getElementById('signal-color');
     const variantDescInput = document.getElementById('variant-desc');
+    const variantNextInput = document.getElementById('variant-next');
     const outputEl = document.getElementById('output');
 
-    function getSignals() { return Object.keys(pathData); }
+    function getSignals() {
+      const order = ['car', 'bike', 'pedestrian'];
+      return Object.keys(pathData).sort((a, b) => {
+        const typeA = pathData[a]?.entityType || 'car';
+        const typeB = pathData[b]?.entityType || 'car';
+        const groupDiff = order.indexOf(typeA) - order.indexOf(typeB);
+        return groupDiff || a.localeCompare(b, undefined, { numeric: true });
+      });
+    }
     function getActiveSignal() { return activeSignal ? pathData[activeSignal] : null; }
     function getActiveVariantObj() {
       const signal = getActiveSignal();
@@ -164,18 +186,31 @@
     function buildButtons() {
       ensureSelection();
       pathButtonsEl.innerHTML = '';
-      for (const [id, signal] of Object.entries(pathData)) {
-        const btn = document.createElement('span');
-        btn.className = 'path-btn' + (activeSignal === id ? ' active' : '');
-        btn.innerHTML = `<span class="dot" style="background:${signal.color}"></span>${id} ${signal.desc}`;
-        btn.onclick = () => {
-          activeSignal = id;
-          activeVariant = signal.variants[0]?.id || null;
-          activeSpecial = null;
-          selectedWp = -1;
-          refresh();
-        };
-        pathButtonsEl.appendChild(btn);
+      const groups = [
+        ['Auto', 'car'],
+        ['Fiets', 'bike'],
+        ['Voetganger', 'pedestrian'],
+      ];
+      for (const [label, entityType] of groups) {
+        const ids = getSignals().filter((id) => (pathData[id]?.entityType || 'car') === entityType);
+        if (!ids.length) continue;
+        const heading = document.createElement('h4');
+        heading.textContent = label;
+        pathButtonsEl.appendChild(heading);
+        for (const id of ids) {
+          const signal = pathData[id];
+          const btn = document.createElement('span');
+          btn.className = 'path-btn' + (activeSignal === id ? ' active' : '');
+          btn.innerHTML = `<span class="dot" style="background:${signal.color}"></span>${id} ${signal.desc}`;
+          btn.onclick = () => {
+            activeSignal = id;
+            activeVariant = signal.variants[0]?.id || null;
+            activeSpecial = null;
+            selectedWp = -1;
+            refresh();
+          };
+          pathButtonsEl.appendChild(btn);
+        }
       }
 
       specialButtonsEl.innerHTML = '';
@@ -217,13 +252,16 @@
       editSection.style.display = 'block';
       signalIdInput.value = activeSignal;
       signalDescInput.value = signal.desc;
+      signalTypeInput.value = signal.entityType || 'car';
       signalColorInput.value = signal.color;
       variantDescInput.value = variant.desc || '';
+      variantNextInput.value = variant.nextSignalId || '';
 
       wpListEl.innerHTML = variant.points.map((pt, i) => {
         let tags = '';
         if (i === variant.detectIdx) tags += '<span class="tag detect">DETECT</span> ';
         if (i === variant.stopIdx) tags += '<span class="tag stop">STOP</span> ';
+        if (i === variant.railStopIdx) tags += '<span class="tag rail-stop">SB</span> ';
         const sel = i === selectedWp ? 'background:rgba(233,69,96,0.2);' : '';
         return `<div class="wp-row" style="${sel}" data-select="${i}"><span class="idx">${i}</span><span class="coord">[${pt[0]}, ${pt[1]}]</span>${tags}<button data-delete="${i}">x</button></div>`;
       }).join('');
@@ -248,11 +286,11 @@
       updateEditPanel();
       updateSpecialPanel();
       if (activeSpecial) {
-        modeInfo.textContent = `Editing SP ${SPECIAL_ITEMS[activeSpecial].label}. Drag points directly on the canvas.`;
+        modeInfo.textContent = `Editing sb ${SPECIAL_ITEMS[activeSpecial].label}. Drag points directly on the canvas.`;
       } else if (activeSignal && activeVariant) {
         modeInfo.textContent = `Editing ${activeSignal} / ${activeVariant}. Click canvas to add waypoint. Drag to move. Right-click to delete.`;
       } else {
-        modeInfo.textContent = 'Select a traffic light or SP layout element to edit.';
+        modeInfo.textContent = 'Select a traffic light or sb layout element to edit.';
       }
       render();
     }
@@ -294,6 +332,8 @@
       variant.points.splice(idx, 1);
       if (variant.detectIdx >= idx && variant.detectIdx > 0) variant.detectIdx--;
       if (variant.stopIdx >= idx && variant.stopIdx > 0) variant.stopIdx--;
+      if (variant.railStopIdx === idx) variant.railStopIdx = null;
+      if (variant.railStopIdx > idx) variant.railStopIdx--;
       if (selectedWp >= variant.points.length) selectedWp = variant.points.length - 1;
       refresh();
     }
@@ -337,6 +377,7 @@
         variant.points.splice(insertIdx, 0, [pos.x, pos.y]);
         if (variant.detectIdx >= insertIdx) variant.detectIdx++;
         if (variant.stopIdx >= insertIdx) variant.stopIdx++;
+        if (variant.railStopIdx >= insertIdx) variant.railStopIdx++;
         selectedWp = insertIdx;
         refresh();
       }
@@ -450,6 +491,7 @@
             let fillColor = signal.color;
             if (i === variant.detectIdx) fillColor = '#f1c40f';
             if (i === variant.stopIdx) fillColor = '#ff0000';
+            if (i === variant.railStopIdx) fillColor = '#3498db';
             ctx.beginPath();
             ctx.arc(pt[0], pt[1], r, 0, Math.PI * 2);
             ctx.fillStyle = fillColor;
@@ -478,9 +520,18 @@
       const raw = {};
       for (const [signalId, signal] of Object.entries(pathData)) {
         raw[signalId] = {
+          entityType: signal.entityType || 'car',
           color: signal.color,
           desc: signal.desc,
-          variants: signal.variants.map(v => ({ id: v.id, desc: v.desc, points: v.points, stopIdx: v.stopIdx, detectIdx: v.detectIdx })),
+          variants: signal.variants.map(v => ({
+            id: v.id,
+            desc: v.desc,
+            points: v.points,
+            stopIdx: v.stopIdx,
+            detectIdx: v.detectIdx,
+            ...(v.nextSignalId ? { nextSignalId: v.nextSignalId } : {}),
+            ...(Number.isInteger(v.railStopIdx) ? { railStopIdx: v.railStopIdx } : {}),
+          })),
         };
       }
       return { RAW_PATHS: raw, RAIL_LAYOUT: railLayout };
@@ -495,21 +546,133 @@
       outputEl.value = `export const RAW_PATHS = ${JSON.stringify(bundle.RAW_PATHS, null, 2)};\n\nexport const RAIL_LAYOUT = ${JSON.stringify(bundle.RAIL_LAYOUT, null, 2)};`;
     }
 
+    function extractAssignedObject(text, name) {
+      const assignment = new RegExp(`(?:export\\s+const\\s+)?${name}\\s*=`);
+      const match = assignment.exec(text);
+      if (!match) return null;
+
+      const start = text.indexOf('{', match.index);
+      if (start < 0) return null;
+
+      let depth = 0;
+      let inString = false;
+      let quote = '';
+      let escaped = false;
+
+      for (let i = start; i < text.length; i++) {
+        const ch = text[i];
+
+        if (inString) {
+          if (escaped) {
+            escaped = false;
+          } else if (ch === '\\') {
+            escaped = true;
+          } else if (ch === quote) {
+            inString = false;
+          }
+          continue;
+        }
+
+        if (ch === '"' || ch === "'") {
+          inString = true;
+          quote = ch;
+          continue;
+        }
+
+        if (ch === '{') depth++;
+        if (ch === '}') {
+          depth--;
+          if (depth === 0) return text.slice(start, i + 1);
+        }
+      }
+
+      return null;
+    }
+
+    function parseObjectLiteral(source, label) {
+      try {
+        return JSON.parse(source);
+      } catch (jsonError) {
+        try {
+          return Function(`"use strict"; return (${source});`)();
+        } catch (jsError) {
+          throw new Error(`${label} is not valid JSON or JavaScript object literal: ${jsError.message}`);
+        }
+      }
+    }
+
+    function parseImportText(text) {
+      try {
+        return JSON.parse(text);
+      } catch (jsonError) {
+        const rawObject = extractAssignedObject(text, 'RAW_PATHS');
+        const railObject = extractAssignedObject(text, 'RAIL_LAYOUT');
+        if (!rawObject && !railObject) {
+          throw jsonError;
+        }
+        return {
+          RAW_PATHS: rawObject ? parseObjectLiteral(rawObject, 'RAW_PATHS') : undefined,
+          RAIL_LAYOUT: railObject ? parseObjectLiteral(railObject, 'RAIL_LAYOUT') : undefined,
+        };
+      }
+    }
+
+    function validateRawPaths(rawPaths) {
+      if (!rawPaths || typeof rawPaths !== 'object' || Array.isArray(rawPaths)) {
+        throw new Error('Import must contain a RAW_PATHS object.');
+      }
+
+      const entries = Object.entries(rawPaths);
+      if (!entries.length) {
+        throw new Error('RAW_PATHS is empty.');
+      }
+
+      for (const [signalId, raw] of entries) {
+        const variants = Array.isArray(raw?.variants) ? raw.variants : [raw];
+        if (!variants.length) {
+          throw new Error(`${signalId} has no variants.`);
+        }
+
+        for (const variant of variants) {
+          if (!Array.isArray(variant.points) || variant.points.length < 2) {
+            throw new Error(`${signalId} has a variant without at least two points.`);
+          }
+          for (const point of variant.points) {
+            if (!Array.isArray(point) || point.length !== 2 || !point.every(Number.isFinite)) {
+              throw new Error(`${signalId} has an invalid point.`);
+            }
+          }
+          if (!Number.isInteger(variant.detectIdx) || !Number.isInteger(variant.stopIdx)) {
+            throw new Error(`${signalId} has invalid detectIdx/stopIdx metadata.`);
+          }
+          if (variant.detectIdx < 0 || variant.detectIdx >= variant.points.length || variant.stopIdx < 0 || variant.stopIdx >= variant.points.length) {
+            throw new Error(`${signalId} has detectIdx/stopIdx outside its point list.`);
+          }
+          if (variant.railStopIdx !== undefined && variant.railStopIdx !== null && (!Number.isInteger(variant.railStopIdx) || variant.railStopIdx < 0 || variant.railStopIdx >= variant.points.length)) {
+            throw new Error(`${signalId} has railStopIdx outside its point list.`);
+          }
+        }
+      }
+    }
+
+    function validateRailLayout(layout) {
+      if (!layout) return;
+      for (const key of Object.keys(SPECIAL_ITEMS)) {
+        if (!layout[key]) continue;
+        if (!Array.isArray(layout[key].points) || !layout[key].points.every((point) => Array.isArray(point) && point.length === 2 && point.every(Number.isFinite))) {
+          throw new Error(`RAIL_LAYOUT.${key} has invalid points.`);
+        }
+      }
+    }
+
     function importJson() {
       const text = outputEl.value.trim();
       try {
-        let parsed;
-        if (text.startsWith('export const RAW_PATHS =') || text.startsWith('const RAW_PATHS =')) {
-          const rawMatch = text.match(/RAW_PATHS\s*=\s*([\s\S]*?)\n\s*(?:export const RAIL_LAYOUT|const RAIL_LAYOUT|$)/);
-          const railMatch = text.match(/RAIL_LAYOUT\s*=\s*([\s\S]*?)\s*;?$/);
-          parsed = {
-            RAW_PATHS: rawMatch ? JSON.parse(rawMatch[1].trim().replace(/;$/, '')) : {},
-            RAIL_LAYOUT: railMatch ? JSON.parse(railMatch[1].trim().replace(/;$/, '')) : null,
-          };
-        } else {
-          parsed = JSON.parse(text);
-        }
-        const normalized = normalizePathDefinitions(parsed.RAW_PATHS || parsed);
+        const parsed = parseImportText(text);
+        const rawPaths = parsed.RAW_PATHS || parsed;
+        validateRawPaths(rawPaths);
+        validateRailLayout(parsed.RAIL_LAYOUT);
+        const normalized = normalizePathDefinitions(rawPaths);
         for (const key of Object.keys(pathData)) delete pathData[key];
         Object.assign(pathData, normalized);
         if (parsed.RAIL_LAYOUT) {
@@ -528,8 +691,9 @@
       const id = prompt('New traffic light ID:');
       if (!id || pathData[id]) return;
       const desc = prompt('Description:', id) || id;
+      const entityType = prompt('Entity type (car, bike, pedestrian):', 'car') || 'car';
       const color = prompt('Color hex:', '#888888') || '#888888';
-      pathData[id] = { signalId: id, desc, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0 }] };
+      pathData[id] = { signalId: id, desc, entityType, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null, railStopIdx: null }] };
       activeSignal = id;
       activeVariant = 'main';
       activeSpecial = null;
@@ -564,7 +728,7 @@
       const id = prompt('Variant ID:', `route${signal.variants.length + 1}`);
       if (!id || signal.variants.some(v => v.id === id)) return;
       const desc = prompt('Variant description:', signal.desc) || signal.desc;
-      signal.variants.push({ id, desc, points: [], detectIdx: 0, stopIdx: 0 });
+      signal.variants.push({ id, desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null, railStopIdx: null });
       activeVariant = id;
       refresh();
     });
@@ -588,11 +752,15 @@
     });
 
     signalDescInput.addEventListener('input', () => { const signal = getActiveSignal(); if (signal) { signal.desc = signalDescInput.value; refresh(); } });
+    signalTypeInput.addEventListener('change', () => { const signal = getActiveSignal(); if (signal) { signal.entityType = signalTypeInput.value; refresh(); } });
     signalColorInput.addEventListener('input', () => { const signal = getActiveSignal(); if (signal) { signal.color = signalColorInput.value; refresh(); } });
     variantDescInput.addEventListener('input', () => { const variant = getActiveVariantObj(); if (variant) { variant.desc = variantDescInput.value; refresh(); } });
+    variantNextInput.addEventListener('input', () => { const variant = getActiveVariantObj(); if (variant) { variant.nextSignalId = variantNextInput.value.trim() || null; refresh(); } });
     document.getElementById('set-detect-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.detectIdx = selectedWp; refresh(); } });
     document.getElementById('set-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.stopIdx = selectedWp; refresh(); } });
-    document.getElementById('clear-variant-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.points = []; variant.detectIdx = 0; variant.stopIdx = 0; selectedWp = -1; refresh(); } });
+    document.getElementById('set-rail-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant && selectedWp >= 0) { variant.railStopIdx = selectedWp; refresh(); } });
+    document.getElementById('clear-rail-stop-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.railStopIdx = null; refresh(); } });
+    document.getElementById('clear-variant-btn').addEventListener('click', () => { const variant = getActiveVariantObj(); if (variant) { variant.points = []; variant.detectIdx = 0; variant.stopIdx = 0; variant.railStopIdx = null; selectedWp = -1; refresh(); } });
 
     document.getElementById('export-json-btn').addEventListener('click', exportJson);
     document.getElementById('export-code-btn').addEventListener('click', exportCode);

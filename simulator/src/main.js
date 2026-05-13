@@ -2,7 +2,13 @@
  * Main entry point for the junction simulator.
  */
 
-import { RAW_PATHS, MANUAL_LIGHTS, RAIL_SIGNAL_ID, getSignalIds } from './paths.js';
+import {
+  CONTINUATION_ONLY_PEDESTRIAN_IDS,
+  RAW_PATHS,
+  MANUAL_LIGHTS,
+  RAIL_SIGNAL_ID,
+  getSignalIds,
+} from './paths.js';
 import { buildAllPaths } from './pathMath.js';
 import { spawnCar, spawnRandom, updateAll } from './carManager.js';
 import { postToController } from './controllerClient.js';
@@ -14,6 +20,11 @@ import { configureTrain, tickTrainSchedule } from './trainManager.js';
 
 const paths = buildAllPaths(RAW_PATHS);
 const signalIds = getSignalIds(RAW_PATHS);
+const carSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['car'] });
+const vulnerableRoadUserSignalIds = getSignalIds(RAW_PATHS, {
+  entityTypes: ['bike', 'pedestrian'],
+  excludeIds: CONTINUATION_ONLY_PEDESTRIAN_IDS,
+});
 
 const lightStates = {};
 for (const id of signalIds) lightStates[id] = 0;
@@ -21,6 +32,12 @@ for (const id of Object.keys(MANUAL_LIGHTS)) lightStates[id] = 0;
 lightStates[RAIL_SIGNAL_ID] = 0;
 
 let connected = false;
+
+if (import.meta.hot) {
+  import.meta.hot.accept('./paths.js', () => {
+    window.location.reload();
+  });
+}
 
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
@@ -46,7 +63,7 @@ buildPanel(document.getElementById('sections'), paths);
 
 function gameLoop() {
   tickTrainSchedule();
-  updateAll(lightStates);
+  updateAll(lightStates, paths);
   updateManualRequestStates(lightStates);
   render(ctx, paths, lightStates);
   updatePanel(lightStates, connected);
@@ -60,11 +77,21 @@ async function controllerTick() {
 async function init() {
   const config = await loadConfig();
   urlInput.value = config.controllerUrl + config.endpoint;
-  configureTrain({ trainLeadMs: config.trainLeadMs, trainActiveMs: config.trainActiveMs });
+  configureTrain({
+    trainIntervalMs: config.trainIntervalMs,
+    trainWarningMs: config.trainWarningMs,
+    trainLoweringMs: config.trainLoweringMs,
+    trainClosedMs: config.trainClosedMs,
+    trainRaisingMs: config.trainRaisingMs,
+  });
 
   controllerTick();
   setInterval(controllerTick, config.postInterval);
-  setInterval(() => spawnRandom(signalIds, paths), config.spawnInterval);
+  setInterval(() => spawnRandom(carSignalIds, paths), config.carSpawnInterval);
+  setInterval(
+    () => spawnRandom(vulnerableRoadUserSignalIds, paths),
+    config.vulnerableRoadUserSpawnInterval,
+  );
 
   requestAnimationFrame(gameLoop);
 
