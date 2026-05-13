@@ -7,6 +7,6 @@
   "trainIntervalMs": 120000,
   "trainWarningMs": 5000,
   "trainLoweringMs": 15000,
-  "trainClosedMs": 30000,
+  "trainClosedMs": 10000,
   "trainRaisingMs": 15000
 }
