@@ -17,6 +17,7 @@ const BIKE_WIDTH = 6;
 const PEDESTRIAN_LENGTH = 7;
 const PEDESTRIAN_WIDTH = 7;
 const COLLISION_RADIUS = 16;
+const PEDESTRIAN_COLLISION_RADIUS = 11;
 
 let entities = [];
 let idCounter = 0;
@@ -239,7 +240,8 @@ function shouldYield(entity) {
     const dx = nextPos.x - other.x;
     const dy = nextPos.y - other.y;
 
-    if (dx * dx + dy * dy >= COLLISION_RADIUS * COLLISION_RADIUS) continue;
+    const collisionRadius = getCollisionRadius(entity, other);
+    if (dx * dx + dy * dy >= collisionRadius * collisionRadius) continue;
 
     const toDx = other.x - entity.x;
     const toDy = other.y - entity.y;
@@ -251,6 +253,14 @@ function shouldYield(entity) {
   }
 
   return false;
+}
+
+function getCollisionRadius(entity, other) {
+  if (entity.entityType === 'pedestrian' || other.entityType === 'pedestrian') {
+    return PEDESTRIAN_COLLISION_RADIUS;
+  }
+
+  return COLLISION_RADIUS;
 }
 
 function findCarAhead(entity) {
