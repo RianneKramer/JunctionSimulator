@@ -16,7 +16,7 @@ public class TrafficLightService {
     private long minGreenMs = 2000;
     private long maxGreenMs = 30000;
     private long orangeMs = 3500;
-    private long minRedMs = 3500;
+    private long minRedMs = 10000;
     private static final long MAX_RED_MS = 120_000L; // 2 minutes
     private static final long BICYCLE_PEDESTRIAN_GREEN_MS = 6_000L;
     private static final Map<String, String> PEDESTRIAN_SEQUENCE_PAIRS = Map.of(
