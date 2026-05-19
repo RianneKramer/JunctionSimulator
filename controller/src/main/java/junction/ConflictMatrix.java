@@ -5,7 +5,7 @@ import java.util.*;
 /**
  * Conflict matrix for the junction.
  * X = conflict (cannot be green simultaneously).
- * Built from Conflictenmatrix_V2.xlsx.
+ * Built from Conflictenmatrix_V4.xlsx.
  */
 public class ConflictMatrix {
 
@@ -49,12 +49,12 @@ public class ConflictMatrix {
         addConflicts("32.2", "5.1", "8.1", "12.1");
         addConflicts("35.1", "7.1", "8.1", "9.1");
         addConflicts("35.2", "7.1", "8.1", "9.1");
-        addConflicts("36.1", "2.1", "5.1", "10.1", "42");
-        addConflicts("36.2", "2.1", "5.1", "10.1", "42");
+        addConflicts("36.1", "2.1", "6.1", "10.1", "42");
+        addConflicts("36.2", "2.1", "6.1", "10.1", "42");
         addConflicts("37.1", "10.1", "11.1", "12.1");
         addConflicts("37.2", "10.1", "11.1", "12.1");
-        addConflicts("38.1", "1.1", "2.1", "9.1", "42");
-        addConflicts("38.2", "1.1", "2.1", "9.1", "42");
+        addConflicts("38.1", "1.1", "5.1", "9.1", "42");
+        addConflicts("38.2", "1.1", "5.1", "9.1", "42");
         addConflicts("sb",   "5.1", "6.1", "7.1", "11.1");
     }
 

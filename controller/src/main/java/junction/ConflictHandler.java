@@ -1,75 +1,16 @@
 package junction;
 
 import java.util.*;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Conflict & Priority Handler
  * Responsibilities:
  * - Encapsulate the junction conflict matrix (delegates to ConflictMatrix)
  * - Provide priority ordering for different entity types (train, bus, bicycle/pedestrian, car)
- * - Provide simple train-priority windows: prepare window (20s before arrival) and clear window (30s after arrival).
  */
 public class ConflictHandler {
 
     private final ConflictMatrix matrix = new ConflictMatrix();
-
-    // Train timing windows (milliseconds)
-    private static final long TRAIN_PREPARE_MS = 20_000L; // 20s before arrival
-    private static final long TRAIN_CLEAR_MS   = 30_000L; // 30s after arrival
-
-    // Tracks the active train block interval [blockStart, blockEnd). 0 means no active train block.
-    private final AtomicLong blockStart = new AtomicLong(0);
-    private final AtomicLong blockEnd = new AtomicLong(0);
-
-    private final Set<String> trainConflictingSignals;
-
-    public ConflictHandler() {
-        // Compute which signals conflict with the sb (railway) signal using the matrix API
-        Set<String> set = new HashSet<>();
-        for (String s : matrix.getAllSignals()) {
-            if (hasConflict("sb", s)) set.add(s);
-        }
-        trainConflictingSignals = Collections.unmodifiableSet(set);
-    }
-
-    // --- Train priority handling ---
-
-    /**
-     * Register an upcoming train arrival timestamp (epoch ms).
-     * This creates a blocking window that starts TRAIN_PREPARE_MS before arrival and ends TRAIN_CLEAR_MS after arrival.
-     */
-    public void registerTrainArrival(long trainArrivalTimestamp) {
-        long start = Math.max(0L, trainArrivalTimestamp - TRAIN_PREPARE_MS);
-        long end = trainArrivalTimestamp + TRAIN_CLEAR_MS;
-        blockStart.set(start);
-        blockEnd.set(end);
-        System.out.println("[ConflictHandler] Registered train window: " + start + " -> " + end);
-    }
-
-    /**
-     * Clear any registered train blocking window.
-     */
-    public void clearTrainWindow() {
-        blockStart.set(0);
-        blockEnd.set(0);
-    }
-
-    /**
-     * Returns true if the given signal should be kept red because of an active train window at currentTimestamp.
-     */
-    public boolean isBlockedByTrain(String signal, long currentTimestamp) {
-        long s = blockStart.get();
-        long e = blockEnd.get();
-        if (s == 0 && e == 0) return false;
-
-        boolean inWindow = currentTimestamp >= s && currentTimestamp <= e + TRAIN_PREPARE_MS;
-        if (!inWindow) return false;
-        // sb itself should also be blocked during train window
-        if ("sb".equals(signal)) return true;
-
-        return trainConflictingSignals.contains(signal);
-    }
 
     // --- Priority logic ---
 
@@ -92,6 +33,7 @@ public class ConflictHandler {
      * - Unknown IDs -> UNKNOWN
      */
     private static final Set<String> BICYCLE_PEDESTRIAN_SIGNALS = Set.of("22", "26.1", "28.1", "86.1", "88.1", "31.1", "31.2", "32.1", "32.2", "35.1", "35.2", "36.1", "36.2", "37.1", "37.2", "38.1", "38.2");
+    // private static final Set<String> TRAIN_SIGNALS = Set.of("sb", "ts.l", "ts.r"); // Improved train logic; not implemented
 
     public boolean isBicycleOrPedestrianSignal(String signalId) {
         return BICYCLE_PEDESTRIAN_SIGNALS.contains(signalId);
@@ -99,7 +41,7 @@ public class ConflictHandler {
 
     public Priority priorityForSignal(String signalId) {
         if (signalId == null) return Priority.UNKNOWN;
-        if ("sb1".equals(signalId)) return Priority.TRAIN;
+        if ("sb".equals(signalId)) return Priority.TRAIN;
         if ("42".equals(signalId)) return Priority.BUS;
         if (isBicycleOrPedestrianSignal(signalId)) return Priority.BICYCLE_PEDESTRIAN;
         // Known but uncategorized signals default to CAR
@@ -125,8 +67,7 @@ public class ConflictHandler {
     }
 
     // --- Helpers delegating to underlying matrix ---
-    public boolean canTurnGreen(String candidateSignal, Set<String> currentlyGreen, long currentTimestamp) {
-        if (isBlockedByTrain(candidateSignal, currentTimestamp)) return false;
+    public boolean canTurnGreen(String candidateSignal, Set<String> currentlyGreen) {
         if ("sb".equals(candidateSignal)) return true;
         if (currentlyGreen.contains("sb")) {
             if (currentlyGreen.contains(candidateSignal)) return false;
