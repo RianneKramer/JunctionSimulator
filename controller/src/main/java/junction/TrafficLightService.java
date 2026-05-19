@@ -22,12 +22,12 @@ public class TrafficLightService {
     private static final long MAX_RED_MS = 120_000L;
 
     private static final Map<String, String> PEDESTRIAN_SEQUENCE_PAIRS = Map.of(
-            "31.1", "31.2",
-            "32.1", "32.2",
-            "35.1", "35.2",
-            "36.1", "36.2",
-            "37.1", "37.2",
-            "38.1", "38.2"
+            "32.1", "31.2",
+            "31.1", "32.2",
+            "36.1", "35.2",
+            "35.1", "36.2",
+            "38.1", "37.2",
+            "37.1", "38.2"
     );
 
     private long minGreenMs = DEFAULT_MIN_GREEN_MS;
