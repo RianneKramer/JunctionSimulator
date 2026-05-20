@@ -12,7 +12,7 @@ public class TrainHandler {
     private static final String LEFT_TRAIN_SIGNAL = "ts.l";
     private static final String RIGHT_TRAIN_SIGNAL = "ts.r";
 
-    private static final long SB_ORANGE_BEFORE_ARRIVAL_MS = 20_000L;
+    private static final long SB_ORANGE_BEFORE_ARRIVAL_MS = 25_000L;
     private static final long SB_RED_BEFORE_ARRIVAL_MS = 15_000L;
     private static final long SB_ORANGE_AFTER_PASS_MS = 10_000L;
     private static final long TRAFFIC_RELEASE_AFTER_PASS_MS = 20_000L;
