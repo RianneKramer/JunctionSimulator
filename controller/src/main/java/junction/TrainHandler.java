@@ -15,7 +15,7 @@ public class TrainHandler {
     private static final long SB_ORANGE_BEFORE_ARRIVAL_MS = 25_000L;
     private static final long SB_RED_BEFORE_ARRIVAL_MS = 15_000L;
     private static final long SB_ORANGE_AFTER_PASS_MS = 10_000L;
-    private static final long TRAFFIC_RELEASE_AFTER_PASS_MS = 20_000L;
+    private static final long TRAFFIC_RELEASE_AFTER_PASS_MS = 30_000L;
 
     private final AtomicLong trainPassTimestamp = new AtomicLong(0L);
 
@@ -54,8 +54,7 @@ public class TrainHandler {
 
         if (currentTimestamp < passTimestamp - SB_ORANGE_BEFORE_ARRIVAL_MS) return 2;
         if (currentTimestamp < passTimestamp - SB_RED_BEFORE_ARRIVAL_MS) return 1;
-        if (currentTimestamp < passTimestamp + SB_ORANGE_AFTER_PASS_MS) return 0;
-        if (currentTimestamp < passTimestamp + TRAFFIC_RELEASE_AFTER_PASS_MS ) return 0;
+        if (currentTimestamp < passTimestamp + TRAFFIC_RELEASE_AFTER_PASS_MS) return 0;
         return 2;
     }
 
