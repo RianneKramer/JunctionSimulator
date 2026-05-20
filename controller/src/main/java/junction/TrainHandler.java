@@ -54,7 +54,7 @@ public class TrainHandler {
 
         if (currentTimestamp < passTimestamp - SB_ORANGE_BEFORE_ARRIVAL_MS) return 2;
         if (currentTimestamp < passTimestamp - SB_RED_BEFORE_ARRIVAL_MS) return 1;
-        if (currentTimestamp < passTimestamp + SB_ORANGE_AFTER_PASS_MS) return 0;
+        // if (currentTimestamp < passTimestamp + SB_ORANGE_AFTER_PASS_MS) return 0;
         if (currentTimestamp < passTimestamp + TRAFFIC_RELEASE_AFTER_PASS_MS) return 1;
         return 2;
     }
