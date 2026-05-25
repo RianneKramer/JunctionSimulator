@@ -1,5 +1,6 @@
 {
   "currentTimestamp": 0,
+  "trainArrivalTimestamp": 0,
   "trafficLights": [
     {
       "id" : "",  

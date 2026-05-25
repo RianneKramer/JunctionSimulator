@@ -1,0 +1,49 @@
+{
+  "type": "object",
+  "required": [
+    "currentTimestamp",
+    "trainArrivalTimestamp",
+    "trafficLights"
+  ],
+  "properties": {
+    "currentTimestamp": {
+      "type": "number"
+    },
+
+    "trainArrivalTimestamp": {
+      "type": "number"
+    },
+
+    "trafficLights": {
+      "type": "array",
+
+      "items": {
+        "type": "object",
+
+        "required": [
+          "id",
+          "hasEntity",
+          "triggeredTimestamp"
+        ],
+
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+
+          "hasEntity": {
+            "type": "boolean"
+          },
+
+          "triggeredTimestamp": {
+            "type": "number"
+          }
+        },
+
+        "additionalProperties": false
+      }
+    }
+  },
+
+  "additionalProperties": false
+}
