@@ -21,10 +21,13 @@ import { configureTrain, tickTrainSchedule } from './trainManager.js';
 const paths = buildAllPaths(RAW_PATHS);
 const signalIds = getSignalIds(RAW_PATHS);
 const carSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['car'] });
+const busSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['bus'] });
 const vulnerableRoadUserSignalIds = getSignalIds(RAW_PATHS, {
   entityTypes: ['bike', 'pedestrian'],
   excludeIds: CONTINUATION_ONLY_PEDESTRIAN_IDS,
 });
+const BUS_SPAWN_MIN_MS = 20000;
+const BUS_SPAWN_MAX_MS = 25000;
 
 const lightStates = {};
 for (const id of signalIds) lightStates[id] = 0;
@@ -92,6 +95,7 @@ async function init() {
     () => spawnRandom(vulnerableRoadUserSignalIds, paths),
     config.vulnerableRoadUserSpawnInterval,
   );
+  scheduleNextBusSpawn();
 
   requestAnimationFrame(gameLoop);
 
@@ -103,3 +107,13 @@ async function init() {
 }
 
 init();
+
+function scheduleNextBusSpawn() {
+  const delay =
+    BUS_SPAWN_MIN_MS + Math.random() * (BUS_SPAWN_MAX_MS - BUS_SPAWN_MIN_MS);
+
+  setTimeout(() => {
+    spawnRandom(busSignalIds, paths);
+    scheduleNextBusSpawn();
+  }, delay);
+}

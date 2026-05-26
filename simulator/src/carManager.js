@@ -18,6 +18,11 @@ const PEDESTRIAN_LENGTH = 7;
 const PEDESTRIAN_WIDTH = 7;
 const COLLISION_RADIUS = 16;
 const PEDESTRIAN_COLLISION_RADIUS = 11;
+const SPAWN_GAP = 40;
+const BUS_SIGNAL_ID = '42';
+const BUS_APPROACH_VARIANT = 'approach';
+const BUS_STRAIGHT_VARIANT = 'straight';
+const BUS_RIGHT_VARIANT = 'right';
 
 let entities = [];
 let idCounter = 0;
@@ -27,7 +32,7 @@ function isVulnerableRoadUser(entity) {
 }
 
 function getEntityProfile(signalId, path) {
-  if (signalId === '42') {
+  if (path.entityType === 'bus') {
     return {
       vehicleType: 'bus',
       length: BUS_LENGTH,
@@ -72,6 +77,31 @@ function pickVariantKey(signalId, paths) {
   return variants[Math.floor(Math.random() * variants.length)];
 }
 
+function findVariantKey(signalId, paths, variantId) {
+  return getSignalVariantKeys(paths, signalId).find(
+    (key) => paths[key].variantId === variantId,
+  ) || null;
+}
+
+function pickSpawnVariantKey(signalId, paths) {
+  if (signalId === BUS_SIGNAL_ID) {
+    return findVariantKey(signalId, paths, BUS_APPROACH_VARIANT);
+  }
+
+  return pickVariantKey(signalId, paths);
+}
+
+function hasSpawnGap(signalId, paths) {
+  const variants = getSignalVariantKeys(paths, signalId);
+  const firstVariant = variants.length ? paths[variants[0]] : null;
+  const needsGap = !firstVariant || !['bike', 'pedestrian'].includes(firstVariant.entityType);
+  if (!needsGap) return true;
+
+  return !entities.some(
+    (entity) => entity.alive && variants.includes(entity.variantKey) && entity.dist < SPAWN_GAP,
+  );
+}
+
 /**
  * Spawn a vehicle for a given controller signal.
  *
@@ -89,7 +119,9 @@ export function spawnCar(signalId, paths) {
  * @param {Object} paths - map of computed variant paths
  */
 export function spawnEntity(signalId, paths) {
-  const variantKey = pickVariantKey(signalId, paths);
+  if (!hasSpawnGap(signalId, paths)) return false;
+
+  const variantKey = pickSpawnVariantKey(signalId, paths);
   if (!variantKey) return false;
 
   const path = paths[variantKey];
@@ -122,19 +154,41 @@ export function spawnEntity(signalId, paths) {
 export function spawnRandom(signalIds, paths) {
   if (!signalIds.length) return;
   const signalId = signalIds[Math.floor(Math.random() * signalIds.length)];
-  const variants = getSignalVariantKeys(paths, signalId);
-  const firstVariant = variants.length ? paths[variants[0]] : null;
-  const needsGap = !firstVariant || !['bike', 'pedestrian'].includes(firstVariant.entityType);
-  const tooClose = needsGap && entities.some((c) => c.alive && variants.includes(c.variantKey) && c.dist < 40);
-  if (!tooClose) spawnEntity(signalId, paths);
+  spawnEntity(signalId, paths);
 }
 
-function isSignalGreen(signalId, lightStates) {
-  const ls = lightStates[signalId] || 0;
-  if (signalId === '42') {
-    return ls === 1 || ls === 2;
+function isSignalGreen(entity, lightStates) {
+  const ls = lightStates[entity.signalId] || 0;
+  if (entity.entityType === 'bus') {
+    if (entity.path.variantId !== BUS_APPROACH_VARIANT) return true;
+    return ls === 2 || ls === 3 || ls === 4;
   }
   return ls === 2;
+}
+
+function isBusApproach(entity) {
+  return entity.entityType === 'bus' && entity.path.variantId === BUS_APPROACH_VARIANT;
+}
+
+function pickBusContinuationVariant(lightState) {
+  if (lightState === 2) return BUS_STRAIGHT_VARIANT;
+  if (lightState === 3) return BUS_RIGHT_VARIANT;
+  if (lightState === 4) {
+    return Math.random() < 0.5 ? BUS_STRAIGHT_VARIANT : BUS_RIGHT_VARIANT;
+  }
+  return null;
+}
+
+function canEnterBusContinuation(entity) {
+  return !entities.some(
+    (other) =>
+      other !== entity &&
+      other.alive &&
+      other.entityType === 'bus' &&
+      other.signalId === entity.signalId &&
+      other.path.variantId !== BUS_APPROACH_VARIANT &&
+      other.dist < entity.minGap,
+  );
 }
 
 /**
@@ -152,7 +206,20 @@ export function updateEntity(entity, lightStates, paths) {
 
   const beforeStop = entity.dist < entity.path.stopDist;
 
-  if (beforeStop && !isSignalGreen(entity.signalId, lightStates)) {
+  if (isBusApproach(entity) && beforeStop && entity.dist + entity.speed >= entity.path.stopDist) {
+    const continuationVariant = pickBusContinuationVariant(lightStates[entity.signalId] || 0);
+    if (
+      !continuationVariant ||
+      !canEnterBusContinuation(entity) ||
+      !transitionToVariant(entity, continuationVariant, paths)
+    ) {
+      entity.dist = entity.path.stopDist - 1;
+      syncPosition(entity);
+    }
+    return;
+  }
+
+  if (beforeStop && !isSignalGreen(entity, lightStates)) {
     if (entity.dist + entity.speed >= entity.path.stopDist) {
       entity.dist = entity.path.stopDist - 1;
       syncPosition(entity);
@@ -191,7 +258,7 @@ export function updateEntity(entity, lightStates, paths) {
 function shouldStopForRail(entity, lightStates) {
   if (!isVulnerableRoadUser(entity)) return false;
   if (!Number.isFinite(entity.path.railStopDist)) return false;
-  if (isSignalGreen(RAIL_SIGNAL_ID, lightStates)) return false;
+  if ((lightStates[RAIL_SIGNAL_ID] || 0) === 2) return false;
   if (entity.dist >= entity.path.railStopDist) return false;
 
   return entity.dist + entity.speed >= entity.path.railStopDist;
@@ -218,6 +285,26 @@ function transitionToNextPath(entity, paths) {
   entity.width = profile.width;
   entity.minGap = profile.minGap;
   entity.speed = profile.speed;
+  entity.dist = 0;
+  entity.x = path.points[0][0];
+  entity.y = path.points[0][1];
+  entity.angle = 0;
+
+  return true;
+}
+
+function transitionToVariant(entity, variantId, paths) {
+  if (!paths) return false;
+
+  const variantKey = findVariantKey(entity.signalId, paths, variantId);
+  if (!variantKey) return false;
+
+  const path = paths[variantKey];
+
+  entity.variantKey = variantKey;
+  entity.path = path;
+  entity.entityType = path.entityType || entity.vehicleType;
+  entity.pathId = entity.signalId;
   entity.dist = 0;
   entity.x = path.points[0][0];
   entity.y = path.points[0][1];

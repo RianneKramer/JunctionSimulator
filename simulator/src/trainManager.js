@@ -16,6 +16,8 @@ let trainClosedMs = 30000;
 let trainRaisingMs = 15000;
 let nextTrainArrivalAt = 0;
 let currentTrainArrivalAt = 0;
+let nextTrainStartsFromRight = true;
+let currentTrainStartsFromRight = true;
 
 const TRAIN_CABIN_COUNT = 3;
 const TRAIN_CABIN_SPACING = 110;
@@ -68,8 +70,10 @@ function getTrainLengthPx() {
   );
 }
 
-function buildExtendedTrainPath() {
+function buildExtendedTrainPath(startsFromRight = true) {
   const rawPoints = structuredClone(RAIL_LAYOUT.trainPath.points);
+  if (!startsFromRight) rawPoints.reverse();
+
   if (rawPoints.length < 2) {
     return buildPath({
       points: [
@@ -148,6 +152,8 @@ export function tickTrainSchedule(now = Date.now()) {
   ) {
     currentTrainArrivalAt = nextTrainArrivalAt;
     nextTrainArrivalAt = 0;
+    currentTrainStartsFromRight = nextTrainStartsFromRight;
+    nextTrainStartsFromRight = !nextTrainStartsFromRight;
   }
 
   if (
@@ -240,7 +246,7 @@ export function getTrainRenderState(now = Date.now()) {
     1,
     Math.max(0, elapsed / Math.max(1, trainClosedMs)),
   );
-  const trainPath = buildExtendedTrainPath();
+  const trainPath = buildExtendedTrainPath(currentTrainStartsFromRight);
   const noseDist = trainPath.totalLength * progress;
   const nose = posAt(trainPath, noseDist);
 

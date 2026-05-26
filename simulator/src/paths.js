@@ -34,6 +34,49 @@ export const RAW_PATHS = {
       },
     ],
   },
+  42: {
+    entityType: "bus",
+    color: "#9b59b6",
+    desc: "Bus E",
+    variants: [
+      {
+        id: "approach",
+        desc: "Bus approach",
+        points: [
+          [637, 265],
+          [528, 263],
+          [491, 264],
+          [454, 263],
+        ],
+        stopIdx: 3,
+        detectIdx: 2,
+      },
+      {
+        id: "straight",
+        desc: "Bus rechtdoor",
+        points: [
+          [454, 264],
+          [392, 257],
+          [256, 250],
+          [2, 247],
+        ],
+        stopIdx: 4,
+        detectIdx: 4,
+      },
+      {
+        id: "right",
+        desc: "Bus rechts",
+        points: [
+          [452, 263],
+          [389, 264],
+          [370, 236],
+          [371, 3],
+        ],
+        stopIdx: 4,
+        detectIdx: 4,
+      },
+    ],
+  },
   1.1: {
     entityType: "car",
     color: "#e74c3c",
@@ -432,7 +475,6 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
-        nextSignalId: "32.1",
       },
     ],
   },
@@ -669,9 +711,7 @@ export const RAIL_LAYOUT = {
   },
 };
 
-export const MANUAL_LIGHTS = {
-  42: { desc: "Bus E", cat: "bus" },
-};
+export const MANUAL_LIGHTS = {};
 
 export const SPECIAL_LIGHTS = {
   [RAIL_SIGNAL_ID]: { desc: "Rail crossing", cat: "train" },
