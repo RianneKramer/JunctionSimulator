@@ -71,6 +71,34 @@ class TrafficLightServiceTest {
     }
 
     @Test
+    void waitingBusEndsConflictingGreenAfterMinimumGreen() {
+        TrafficLightService service = configuredService();
+
+        Map<String, Integer> carGreen = service.processUpdate(
+                List.of(update("1.1", true, 100L)),
+                1500L
+        );
+        Map<String, Integer> carOrange = service.processUpdate(
+                List.of(
+                        update("1.1", true, 100L),
+                        update("42", true, 2600L)
+                ),
+                2600L
+        );
+        Map<String, Integer> busGreen = service.processUpdate(
+                List.of(
+                        update("1.1", false, 100L),
+                        update("42", true, 2600L)
+                ),
+                3700L
+        );
+
+        assertEquals(2, carGreen.get("1.1"));
+        assertEquals(1, carOrange.get("1.1"));
+        assertEquals(4, busGreen.get("42"));
+    }
+
+    @Test
     void busGoStatesAreSignalAware() {
         TrafficLightService service = configuredService();
 

@@ -5,10 +5,21 @@
 import { posAt, getRepresentativePaths } from './pathMath.js';
 import { getCars } from './carManager.js';
 import { computeEntities } from './entityDetection.js';
-import { getTrainRenderState } from './trainManager.js';
+import { getTrainRenderState, getTrainScheduleState } from './trainManager.js';
 import { RAIL_LAYOUT, RAIL_SIGNAL_ID } from './paths.js';
 
 const CANVAS_SIZE = 640;
+const TRAIN_BARRIER_CONFIG = {
+  hingeRadius: 7,
+  armWidth: 8,
+  openLengthScale: 0.60,
+  closedCenterMargin: 14,
+  stripeWidth: 4,
+  stripePattern: [14, 10],
+  baseColor: '#d71920',
+  stripeColor: '#ffffff',
+  hingeColor: '#d71920',
+};
 
 export function render(ctx, paths, lightStates) {
   ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
@@ -21,6 +32,7 @@ export function render(ctx, paths, lightStates) {
   drawTrafficLights(ctx, representativePaths, lightStates);
   drawTrain(ctx);
   drawCars(ctx);
+  drawTrainBarriers(ctx);
 }
 
 function drawRailCrossing(ctx, spState) {
@@ -65,6 +77,114 @@ function drawRailCrossing(ctx, spState) {
   ctx.fillText('sb', boxX, boxY - 22);
 
   ctx.restore();
+}
+
+function getBarrierClosedProgress(trainState, now = Date.now()) {
+  if (trainState.phase === 'lowering') {
+    const elapsed = now - trainState.loweringStartAt;
+    return clamp01(elapsed / Math.max(1, trainState.trainLoweringMs));
+  }
+
+  if (trainState.phase === 'closed') return 1;
+
+  if (trainState.phase === 'raising') {
+    const elapsed = now - trainState.closedUntil;
+    return 1 - clamp01(elapsed / Math.max(1, trainState.trainRaisingMs));
+  }
+
+  return 0;
+}
+
+function drawTrainBarriers(ctx) {
+  const trainState = getTrainScheduleState();
+  const closedProgress = easeInOut(getBarrierClosedProgress(trainState));
+  const [railStart, railEnd] = RAIL_LAYOUT.crossing.points;
+  const centerX = (railStart[0] + railEnd[0]) / 2;
+  const centerY = (railStart[1] + railEnd[1]) / 2;
+  const railAngle = Math.atan2(railEnd[1] - railStart[1], railEnd[0] - railStart[0]);
+  const barrierPoints = RAIL_LAYOUT.barriers?.points || [
+    [centerX - 110, centerY - 20],
+    [centerX + 110, centerY + 20],
+  ];
+  const [topHinge, bottomHinge] = barrierPoints;
+  const halfHingeDistance = Math.hypot(
+    bottomHinge[0] - topHinge[0],
+    bottomHinge[1] - topHinge[1],
+  ) / 2;
+  const openLength = Math.max(
+    40,
+    halfHingeDistance * TRAIN_BARRIER_CONFIG.openLengthScale,
+  );
+  const closedLength = Math.max(
+    openLength,
+    halfHingeDistance - TRAIN_BARRIER_CONFIG.closedCenterMargin,
+  );
+
+  drawBarrierArm(ctx, {
+    hingeX: topHinge[0],
+    hingeY: topHinge[1],
+    closedAngle: railAngle,
+    openLength,
+    closedLength,
+    closedProgress,
+    openDirection: -1,
+  });
+
+  drawBarrierArm(ctx, {
+    hingeX: bottomHinge[0],
+    hingeY: bottomHinge[1],
+    closedAngle: railAngle + Math.PI,
+    openLength,
+    closedLength,
+    closedProgress,
+    openDirection: 1,
+  });
+}
+
+function drawBarrierArm(ctx, { hingeX, hingeY, closedAngle, openLength, closedLength, closedProgress, openDirection }) {
+  const openAngle = closedAngle + openDirection * Math.PI / 2;
+  const angle = openAngle + Math.atan2(
+    Math.sin(closedAngle - openAngle),
+    Math.cos(closedAngle - openAngle),
+  ) * closedProgress;
+  const length = openLength + (closedLength - openLength) * closedProgress;
+
+  ctx.save();
+  ctx.translate(hingeX, hingeY);
+
+  ctx.fillStyle = TRAIN_BARRIER_CONFIG.hingeColor;
+  ctx.beginPath();
+  ctx.arc(0, 0, TRAIN_BARRIER_CONFIG.hingeRadius, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.rotate(angle);
+  ctx.lineCap = 'butt';
+  ctx.lineWidth = TRAIN_BARRIER_CONFIG.armWidth;
+  ctx.strokeStyle = TRAIN_BARRIER_CONFIG.baseColor;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(length, 0);
+  ctx.stroke();
+
+  ctx.lineWidth = TRAIN_BARRIER_CONFIG.stripeWidth;
+  ctx.strokeStyle = TRAIN_BARRIER_CONFIG.stripeColor;
+  ctx.setLineDash(TRAIN_BARRIER_CONFIG.stripePattern);
+  ctx.beginPath();
+  ctx.moveTo(8, 0);
+  ctx.lineTo(length, 0);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  ctx.restore();
+}
+
+function clamp01(value) {
+  return Math.min(1, Math.max(0, value));
+}
+
+function easeInOut(value) {
+  const t = clamp01(value);
+  return 0.5 - Math.cos(t * Math.PI) / 2;
 }
 
 function drawDetectionZones(ctx, paths, entities) {

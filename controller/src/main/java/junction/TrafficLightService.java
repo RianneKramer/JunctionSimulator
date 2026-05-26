@@ -64,6 +64,7 @@ public class TrafficLightService {
         transitionOrangeToRed(currentTimestamp);
         transitionGreenToOrange(currentTimestamp, trainActive);
         prioritizeExpiredCarRed(currentTimestamp, trainActive);
+        prioritizeWaitingBuses(currentTimestamp, trainActive);
         activateWaitingSignals(currentTimestamp, trainActive);
         return getAllStates();
     }
@@ -175,6 +176,29 @@ public class TrafficLightService {
                 long greenFor = currentTimestamp - greenSince.getOrDefault(activeSignal, 0L);
                 if (greenFor >= getMinGreenMs(activeSignal)) {
                     System.out.println("[Controller] " + waitingCar + " reached max red wait, ending " + activeSignal);
+                    setState(activeSignal, 1, currentTimestamp);
+                }
+            }
+        }
+    }
+
+    private void prioritizeWaitingBuses(long currentTimestamp, boolean trainActive) {
+        for (String waitingBus : BUS_SIGNALS) {
+            if (!entityPresence.getOrDefault(waitingBus, false)) continue;
+            if (states.getOrDefault(waitingBus, 0) != 0) continue;
+            if (trainActive && matrix.hasConflict(TRAIN_SIGNAL_ID, waitingBus)) continue;
+
+            long changedAt = stateChangeTime.getOrDefault(waitingBus, 0L);
+            if ((currentTimestamp - changedAt) < minRedMs) continue;
+
+            for (String activeSignal : matrix.getAllSignals()) {
+                if (TRAIN_SIGNAL_ID.equals(activeSignal)) continue;
+                if (!matrix.hasConflict(waitingBus, activeSignal)) continue;
+                if (!isGoState(activeSignal, states.getOrDefault(activeSignal, 0))) continue;
+
+                long greenFor = currentTimestamp - greenSince.getOrDefault(activeSignal, 0L);
+                if (greenFor >= getMinGreenMs(activeSignal)) {
+                    System.out.println("[Controller] " + waitingBus + " bus priority ending " + activeSignal);
                     setState(activeSignal, 1, currentTimestamp);
                 }
             }

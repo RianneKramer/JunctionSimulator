@@ -10,7 +10,7 @@ import {
   RAIL_SIGNAL_ID,
   getSignalIds,
 } from './paths.js';
-import { getCars, getTotalSpawned, spawnEntity } from './carManager.js';
+import { getCars, getTotalSpawned, spawnEntity, spawnMultiple } from './carManager.js';
 import { getTrainScheduleState, triggerTrainSoon } from './trainManager.js';
 
 export function buildPanel(container, paths) {
@@ -76,9 +76,7 @@ export function buildPanel(container, paths) {
   document.getElementById('bulk-spawn-btn')?.addEventListener('click', () => {
     for (const signalId of bulkSpawnSignalIds) {
       const count = 2 + Math.floor(Math.random() * 4);
-      for (let i = 0; i < count; i++) {
-        spawnEntity(signalId, paths);
-      }
+      spawnMultiple(signalId, paths, count);
     }
   });
 }

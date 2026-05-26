@@ -709,6 +709,12 @@ export const RAIL_LAYOUT = {
       [2, 480],
     ],
   },
+  barriers: {
+    points: [
+      [253, 462],
+      [442, 499],
+    ],
+  },
 };
 
 export const MANUAL_LIGHTS = {};

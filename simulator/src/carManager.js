@@ -102,6 +102,31 @@ function hasSpawnGap(signalId, paths) {
   );
 }
 
+function createEntity(signalId, variantKey, path, profile, dist = 0) {
+  const entity = {
+    id: ++idCounter,
+    signalId,
+    pathId: signalId,
+    variantKey,
+    path,
+    entityType: path.entityType || profile.vehicleType,
+    vehicleType: profile.vehicleType,
+    length: profile.length,
+    width: profile.width,
+    minGap: profile.minGap,
+    dist,
+    speed: profile.speed,
+    x: path.points[0][0],
+    y: path.points[0][1],
+    angle: 0,
+    alive: true,
+  };
+
+  syncPosition(entity);
+  entities.push(entity);
+  return entity;
+}
+
 /**
  * Spawn a vehicle for a given controller signal.
  *
@@ -127,25 +152,25 @@ export function spawnEntity(signalId, paths) {
   const path = paths[variantKey];
   const profile = getEntityProfile(signalId, path);
 
-  entities.push({
-    id: ++idCounter,
-    signalId,
-    pathId: signalId,
-    variantKey,
-    path,
-    entityType: path.entityType || profile.vehicleType,
-    vehicleType: profile.vehicleType,
-    length: profile.length,
-    width: profile.width,
-    minGap: profile.minGap,
-    dist: 0,
-    speed: profile.speed,
-    x: path.points[0][0],
-    y: path.points[0][1],
-    angle: 0,
-    alive: true,
-  });
+  createEntity(signalId, variantKey, path, profile);
   return true;
+}
+
+export function spawnMultiple(signalId, paths, count) {
+  const variantKey = pickSpawnVariantKey(signalId, paths);
+  if (!variantKey) return 0;
+
+  const path = paths[variantKey];
+  const profile = getEntityProfile(signalId, path);
+  const spacing = Math.max(profile.minGap, profile.length + 8);
+  let spawned = 0;
+
+  for (let i = 0; i < count; i++) {
+    createEntity(signalId, variantKey, path, profile, i * spacing);
+    spawned += 1;
+  }
+
+  return spawned;
 }
 
 /**
