@@ -60,7 +60,7 @@
       <h3>Signal metadata</h3>
       <div class="row"><span>ID</span><input id="signal-id" disabled></div>
       <div class="row"><span>Desc</span><input id="signal-desc"></div>
-      <div class="row"><span>Type</span><select id="signal-type"><option value="car">car</option><option value="bike">bike</option><option value="pedestrian">pedestrian</option></select></div>
+      <div class="row"><span>Type</span><select id="signal-type"><option value="car">car</option><option value="bus">bus</option><option value="bike">bike</option><option value="pedestrian">pedestrian</option></select></div>
       <div class="row"><span>Color</span><input id="signal-color"></div>
 
       <h3>Variants</h3>
@@ -691,7 +691,7 @@
       const id = prompt('New traffic light ID:');
       if (!id || pathData[id]) return;
       const desc = prompt('Description:', id) || id;
-      const entityType = prompt('Entity type (car, bike, pedestrian):', 'car') || 'car';
+      const entityType = prompt('Entity type (car, bus, bike, pedestrian):', 'car') || 'car';
       const color = prompt('Color hex:', '#888888') || '#888888';
       pathData[id] = { signalId: id, desc, entityType, color, variants: [{ id: 'main', desc, points: [], detectIdx: 0, stopIdx: 0, nextSignalId: null, railStopIdx: null }] };
       activeSignal = id;

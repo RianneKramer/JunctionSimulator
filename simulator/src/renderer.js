@@ -92,6 +92,8 @@ function drawTrafficLights(ctx, paths, lightStates) {
   for (const [signalId, p] of Object.entries(paths)) {
     const stop = posAt(p, p.stopDist);
     const ls = lightStates[signalId] || 0;
+    const isBusSignal = p.entityType === 'bus';
+    const isGo = isBusSignal ? [2, 3, 4].includes(ls) : ls === 2;
     const r = 5;
 
     ctx.fillStyle = '#111';
@@ -109,7 +111,7 @@ function drawTrafficLights(ctx, paths, lightStates) {
     ctx.arc(stop.x, stop.y, r - 1, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = ls === 2 ? '#33ff33' : '#113311';
+    ctx.fillStyle = isGo ? '#33ff33' : '#113311';
     ctx.beginPath();
     ctx.arc(stop.x, stop.y + 5, r - 1, 0, Math.PI * 2);
     ctx.fill();

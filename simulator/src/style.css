@@ -141,6 +141,8 @@ body {
 .ind.s0 { background: #cc0000; border-color: #ff3333; }
 .ind.s1 { background: #cc7700; border-color: #ff9900; }
 .ind.s2 { background: #00cc00; border-color: #33ff33; }
+.ind.s3 { background: #00aa88; border-color: #33ffcc; }
+.ind.s4 { background: #00cc00; border-color: #ccff33; }
 
 .spawn-btn {
   margin-left: auto;

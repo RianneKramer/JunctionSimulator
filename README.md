@@ -60,4 +60,7 @@ Controller antwoordt met stoplicht statussen:
 }
 ```
 
-Status codes: 0=rood, 1=oranje, 2=groen
+Status codes:
+- Normale verkeerslichten: 0=rood, 1=oranje, 2=groen
+- `sb`: 0=rood/gesloten, 1=niets/waarschuwing, 2=groen/open
+- `42`: 0=rood, 1=oranje, 2=rechtdoor, 3=rechts, 4=rechtdoor + rechts

@@ -68,6 +68,8 @@ export function computeEntities(paths) {
 
   for (const car of cars) {
     if (!car.alive) continue;
+    if (car.entityType === 'bus' && car.path.variantId !== 'approach') continue;
+
     const p = paths[car.variantKey] || car.path;
     const vehicleLength = car.length || 20;
     if (car.dist >= p.detectDist && car.dist <= p.stopDist + vehicleLength) {

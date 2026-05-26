@@ -11,12 +11,12 @@ import {
   getSignalIds,
 } from './paths.js';
 import { getCars, getTotalSpawned, spawnEntity } from './carManager.js';
-import { requestManualEntity, getManualEntity } from './entityDetection.js';
 import { getTrainScheduleState, triggerTrainSoon } from './trainManager.js';
 
 export function buildPanel(container, paths) {
   let html = '';
   const carSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['car'] });
+  const busSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['bus'] });
   const bikeSignalIds = getSignalIds(RAW_PATHS, { entityTypes: ['bike'] });
   const pedestrianSignalIds = getSignalIds(RAW_PATHS, {
     entityTypes: ['pedestrian'],
@@ -48,8 +48,9 @@ export function buildPanel(container, paths) {
     <div class="train-status" id="train-status">No train scheduled</div>`;
 
   html += '<h3>Bus</h3>';
-  for (const [id, info] of Object.entries(MANUAL_LIGHTS)) {
-    if (info.cat === 'bus') html += manualRow(id, info.desc);
+  for (const signalId of busSignalIds) {
+    const raw = RAW_PATHS[signalId];
+    html += animatedRequestRow(signalId, raw.desc);
   }
 
   html += '<h3>Fiets (Bicycle)</h3>';
@@ -76,15 +77,6 @@ export function buildPanel(container, paths) {
     });
   });
 
-  container.querySelectorAll('[data-request]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const id = btn.dataset.request;
-      requestManualEntity(id);
-      btn.className = 'entity-btn' + (getManualEntity(id) ? ' pending' : '');
-      btn.textContent = getManualEntity(id) ? 'Pending' : 'Request';
-    });
-  });
-
   document.getElementById('train-btn')?.addEventListener('click', () => {
     triggerTrainSoon();
   });
@@ -97,15 +89,6 @@ export function buildPanel(container, paths) {
       }
     }
   });
-}
-
-function manualRow(id, desc) {
-  return `
-    <div class="light-row" id="row-${id}">
-      <div class="ind s0" id="ind-${id}"></div>
-      <span>${id} - ${desc}</span>
-      <button class="entity-btn" id="ebtn-${id}" data-request="${id}">Request</button>
-    </div>`;
 }
 
 function animatedRequestRow(id, desc) {
@@ -132,14 +115,6 @@ export function updatePanel(lightStates, connected) {
       const n = cars.filter((c) => c.alive && c.signalId === signalId).length;
       cnt.textContent = n > 0 ? n : '';
     }
-  }
-
-  for (const id of Object.keys(MANUAL_LIGHTS)) {
-    const btn = document.getElementById('ebtn-' + id);
-    if (!btn) continue;
-    const pending = getManualEntity(id);
-    btn.className = 'entity-btn' + (pending ? ' pending' : '');
-    btn.textContent = pending ? 'Pending' : 'Request';
   }
 
   const dotEl = document.getElementById('dot');

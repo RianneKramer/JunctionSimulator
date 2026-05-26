@@ -6,7 +6,10 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Traffic light controller using conflict matrix.
  *
- * States: 0 = red, 1 = orange, 2 = green
+ * States:
+ * - normal lights: 0 = red, 1 = orange, 2 = green
+ * - bus 42: 0 = red, 1 = orange, 2 = straight, 3 = right, 4 = straight + right
+ * - sb: 0 = closed, 1 = warning/clearing, 2 = open
  */
 public class TrafficLightService {
 
@@ -132,7 +135,7 @@ public class TrafficLightService {
         for (String signal : matrix.getAllSignals()) {
             if (TRAIN_SIGNAL_ID.equals(signal)) continue;
             int state = states.getOrDefault(signal, 0);
-            if (state != 2) continue;
+            if (!isGoState(signal, state)) continue;
 
             if (trainActive && matrix.hasConflict(TRAIN_SIGNAL_ID, signal)) {
                 setState(signal, 0, currentTimestamp);
@@ -167,7 +170,7 @@ public class TrafficLightService {
             for (String activeSignal : matrix.getAllSignals()) {
                 if (TRAIN_SIGNAL_ID.equals(activeSignal)) continue;
                 if (!matrix.hasConflict(waitingCar, activeSignal)) continue;
-                if (states.getOrDefault(activeSignal, 0) != 2) continue;
+                if (!isGoState(activeSignal, states.getOrDefault(activeSignal, 0))) continue;
 
                 long greenFor = currentTimestamp - greenSince.getOrDefault(activeSignal, 0L);
                 if (greenFor >= getMinGreenMs(activeSignal)) {
@@ -201,15 +204,18 @@ public class TrafficLightService {
 
         waiting.sort(
                 Comparator
-                        .comparingLong((String s) -> getPriorityScore(s, currentTimestamp))
-                        .reversed()
+                        .comparingInt((String s) -> isBusSignal(s) ? 0 : 1)
+                        .thenComparing(
+                                Comparator.comparingLong((String s) -> getPriorityScore(s, currentTimestamp))
+                                        .reversed()
+                        )
                         .thenComparingLong(s -> triggeredTimestamps.getOrDefault(s, Long.MAX_VALUE))
                         .thenComparing(s -> s)
         );
 
         for (String signal : waiting) {
             if (matrix.canTurnGreen(signal, occupied)) {
-                setState(signal, 2, currentTimestamp);
+                setState(signal, getGoState(signal), currentTimestamp);
                 greenSince.put(signal, currentTimestamp);
                 occupied.add(signal);
             }
@@ -225,7 +231,9 @@ public class TrafficLightService {
         String name = switch (state) {
             case 0 -> "RED";
             case 1 -> "ORANGE";
-            case 2 -> "GREEN";
+            case 2 -> isBusSignal(signal) ? "BUS_STRAIGHT" : "GREEN";
+            case 3 -> "BUS_RIGHT";
+            case 4 -> "BUS_STRAIGHT_RIGHT";
             default -> "?";
         };
         System.out.println("[Controller] " + signal + " -> " + name);
@@ -235,7 +243,7 @@ public class TrafficLightService {
         Set<String> occ = new HashSet<>();
         for (Map.Entry<String, Integer> e : states.entrySet()) {
             if (TRAIN_SIGNAL_ID.equals(e.getKey())) continue;
-            if (e.getValue() == 2 || e.getValue() == 1) occ.add(e.getKey());
+            if (isOccupiedState(e.getKey(), e.getValue())) occ.add(e.getKey());
         }
         return occ;
     }
@@ -323,16 +331,34 @@ public class TrafficLightService {
         return redWaitMs + requestWaitMs + maxRedBonus;
     }
 
+    private int getGoState(String signal) {
+        if (isBusSignal(signal)) return 4;
+        return 2;
+    }
+
+    boolean isGoState(String signal, int state) {
+        if (isBusSignal(signal)) return state == 2 || state == 3 || state == 4;
+        return state == 2;
+    }
+
+    private boolean isOccupiedState(String signal, int state) {
+        return state == 1 || isGoState(signal, state);
+    }
+
     private long getMinGreenMs(String signal) {
-        if (BUS_SIGNALS.contains(signal)) return busMinGreenMs;
+        if (isBusSignal(signal)) return busMinGreenMs;
         if (BIKE_SIGNALS.contains(signal)) return bikeMinGreenMs;
         if (PEDESTRIAN_SIGNALS.contains(signal)) return pedestrianMinGreenMs;
         return carMinGreenMs;
     }
 
+    private boolean isBusSignal(String signal) {
+        return BUS_SIGNALS.contains(signal);
+    }
+
     private boolean isCarSignal(String signal) {
         return !TRAIN_SIGNAL_ID.equals(signal)
-                && !BUS_SIGNALS.contains(signal)
+                && !isBusSignal(signal)
                 && !BIKE_SIGNALS.contains(signal)
                 && !PEDESTRIAN_SIGNALS.contains(signal);
     }
