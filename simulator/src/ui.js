@@ -27,15 +27,7 @@ export function buildPanel(container, paths) {
   html += '<h3>Auto (Spawn Cars)</h3>';
   for (const signalId of carSignalIds) {
     const raw = RAW_PATHS[signalId];
-    const variantCount = raw.variants?.length || 1;
-    html += `
-      <div class="light-row" id="row-${signalId}">
-        <div class="ind s0" id="ind-${signalId}"></div>
-        <span>${signalId} - ${raw.desc}</span>
-        <span class="entity-count" id="cnt-${signalId}"></span>
-        <span class="variant-count">${variantCount > 1 ? `${variantCount}x` : ''}</span>
-        <button class="spawn-btn" data-spawn="${signalId}">Spawn</button>
-      </div>`;
+    html += spawnRow(signalId, raw.desc, raw);
   }
 
   html += '<h3>Trein</h3>';
@@ -50,19 +42,19 @@ export function buildPanel(container, paths) {
   html += '<h3>Bus</h3>';
   for (const signalId of busSignalIds) {
     const raw = RAW_PATHS[signalId];
-    html += animatedRequestRow(signalId, raw.desc);
+    html += spawnRow(signalId, signalId === '42' ? 'Bus' : raw.desc, raw);
   }
 
   html += '<h3>Fiets (Bicycle)</h3>';
   for (const signalId of bikeSignalIds) {
     const raw = RAW_PATHS[signalId];
-    html += animatedRequestRow(signalId, raw.desc);
+    html += spawnRow(signalId, raw.desc, raw);
   }
 
   html += '<h3>Voetganger (Pedestrian)</h3>';
   for (const signalId of pedestrianSignalIds) {
     const raw = RAW_PATHS[signalId];
-    html += animatedRequestRow(signalId, raw.desc);
+    html += spawnRow(signalId, raw.desc, raw);
   }
 
   html += `
@@ -91,12 +83,15 @@ export function buildPanel(container, paths) {
   });
 }
 
-function animatedRequestRow(id, desc) {
+function spawnRow(id, desc, raw) {
+  const variantCount = raw.variants?.length || 1;
   return `
     <div class="light-row" id="row-${id}">
       <div class="ind s0" id="ind-${id}"></div>
-      <span>${id} - ${desc}</span>
-      <button class="entity-btn" data-spawn="${id}">Request</button>
+      <span class="light-label">${id} - ${desc}</span>
+      <span class="entity-count" id="cnt-${id}"></span>
+      <span class="variant-count">${variantCount > 1 ? `${variantCount}x` : ''}</span>
+      <button class="spawn-btn" data-spawn="${id}">Spawn</button>
     </div>`;
 }
 
