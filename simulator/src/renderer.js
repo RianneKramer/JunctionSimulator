@@ -49,7 +49,7 @@ function drawRailCrossing(ctx, spState) {
   ctx.arc(boxX, boxY - 6, 5, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = spState === 1 ? '#cccccc' : '#444';
+  ctx.fillStyle = spState === 1 ? '#ff9900' : '#332200';
   ctx.beginPath();
   ctx.arc(boxX, boxY, 5, 0, Math.PI * 2);
   ctx.fill();
@@ -137,7 +137,7 @@ function drawTrain(ctx) {
     ctx.save();
     ctx.translate(cabinX, cabinY);
     ctx.rotate(train.angle);
-    ctx.scale(1, -1);
+    ctx.scale(1, Math.cos(train.angle) < 0 ? -1 : 1);
 
     ctx.fillStyle = '#5dade2';
     ctx.beginPath();

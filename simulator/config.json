@@ -1,7 +1,7 @@
 {
-  "controllerUrl": "http://100.113.229.111:8080",
+  "controllerUrl": "http://localhost:8080",
   "endpoint": "/data",
-  "postInterval": 300,
+  "postInterval": 1000,
   "carSpawnInterval": 2000,
   "vulnerableRoadUserSpawnInterval": 3000,
   "trainIntervalMs": 120000,

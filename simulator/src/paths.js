@@ -432,7 +432,6 @@ export const RAW_PATHS = {
         ],
         stopIdx: 1,
         detectIdx: 0,
-        nextSignalId: "32.1",
       },
     ],
   },
