@@ -16,7 +16,7 @@ const CONTROLLER_ENDPOINT = "/data";
 const PROXY_TIMEOUT_MS = parseInt(process.env.PROXY_TIMEOUT_MS || "8000", 10);
 
 let config = {
-  controllerUrl: process.env.CONTROLLER_URL || "http://localhost:8080",
+  controllerUrl: process.env.CONTROLLER_URL || "http://localhost:8000",
   endpoint: CONTROLLER_ENDPOINT,
   postInterval: parseInt(process.env.POST_INTERVAL || "3000", 10),
   spawnInterval: parseInt(process.env.SPAWN_INTERVAL || "6000", 10),

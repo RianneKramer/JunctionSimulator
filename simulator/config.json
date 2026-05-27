@@ -1,5 +1,5 @@
 {
-  "controllerUrl": "http://141.252.43.198:8080",
+  "controllerUrl": "http://localhost:8000",
   "endpoint": "/data",
   "postInterval": 1000,
   "spawnInterval": 5000,
