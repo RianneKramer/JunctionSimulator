@@ -42,6 +42,15 @@ Simulator POST naar controller elke 3 seconden:
 }
 ```
 
+`trainArrivalTimestamp` is t=0 van de overwegprocedure: op dat moment is de
+overweg gesloten en passeert de trein. Met de standaard treinconfig start de
+waarschuwing op t=-20s, gaan de slagbomen omlaag op t=-15s, is de overweg
+gesloten van t=0s tot t=30s, gaan de slagbomen omhoog op t=30s en is de
+procedure klaar op t=45s. De simulator en controller hebben ieder hun eigen
+lokale treinconfig. Die config wordt niet meegestuurd in het
+simulator-controller protocol, zodat de bestaande JSON-standaard compatibel
+blijft.
+
 Controller antwoordt met stoplicht statussen:
 ```json
 {
@@ -51,4 +60,7 @@ Controller antwoordt met stoplicht statussen:
 }
 ```
 
-Status codes: 0=rood, 1=oranje, 2=groen
+Status codes:
+- Normale verkeerslichten: 0=rood, 1=oranje, 2=groen
+- `sb`: 0=rood/gesloten, 1=niets/waarschuwing, 2=groen/open
+- `42`: 0=rood, 1=oranje, 2=rechtdoor, 3=rechts, 4=rechtdoor + rechts

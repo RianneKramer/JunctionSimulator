@@ -1,31 +1,35 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-  <title>Junction Simulator</title>
-  <link rel="stylesheet" href="src/style.css">
-</head>
-<body>
-  <div class="container">
-    <div class="view-panel">
-      <div class="canvas-wrap">
-        <img src="public/intersection.png" alt="Junction">
-        <canvas id="c" width="640" height="640"></canvas>
-      </div>
-    </div>
-    <div class="side" id="panel">
-      <h2>Junction Simulator</h2>
-      <div class="status">
-        <span class="dot" id="dot"></span>
-        <span id="st">Initializing...</span>
-      </div>
-      <div class="cfg-row">
-        <input id="curl" placeholder="Controller URL" value="http://localhost:8080/data">
-        <button>Set</button>
-      </div>
-      <div id="sections"></div>
-      <div class="stats" id="stats"></div>
-    </div>
-  </div>
-  <script type="module" src="src/main.js"></script>
-</body>
+    <head>
+        <title>Junction Simulator</title>
+        <link rel="stylesheet" href="src/style.css" />
+    </head>
+    <body>
+        <div class="container">
+            <div class="view-panel">
+                <div class="canvas-wrap">
+                    <img src="/intersection-enhanced.png" alt="Junction" />
+                    <canvas id="c" width="640" height="640"></canvas>
+                </div>
+            </div>
+            <div class="side" id="panel">
+                <h2>Junction Simulator</h2>
+                <div class="status">
+                    <span class="dot" id="dot"></span>
+                    <span id="st">Initializing...</span>
+                </div>
+                <div class="cfg-row">
+                    <input
+                        id="curl"
+                        placeholder="Controller URL"
+                        value="http://localhost:8080/data"
+                    />
+                    <button>Set</button>
+                </div>
+                <div id="sections"></div>
+                <div class="stats" id="stats"></div>
+            </div>
+        </div>
+        <script type="module" src="src/main.js"></script>
+    </body>
 </html>
