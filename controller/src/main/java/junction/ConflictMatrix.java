@@ -59,11 +59,7 @@ public class ConflictMatrix {
     }
 
     private void addConflicts(String signal, String... conflicting) {
-        Set<String> set = conflicts.get(signal);
-        if (set == null) {
-            set = new HashSet<>();
-            conflicts.put(signal, set);
-        }
+        Set<String> set = conflicts.computeIfAbsent(signal, k -> new HashSet<>());
         for (String c : conflicting) {
             set.add(c);
             // symmetric
@@ -82,14 +78,14 @@ public class ConflictMatrix {
     /**
      * Given a set of currently green signals, check if adding candidateSignal would cause a conflict.
      */
-    public boolean canTurnGreen(String candidateSignal, Set<String> currentlyGreen) {
-        for (String green : currentlyGreen) {
-            if (hasConflict(candidateSignal, green)) {
-                return false;
-            }
-        }
-        return true;
-    }
+//    public boolean canTurnGreen(String candidateSignal, Set<String> currentlyGreen) {
+//        for (String green : currentlyGreen) {
+//            if (hasConflict(candidateSignal, green)) {
+//                return false;
+//            }
+//        }
+//        return true;
+//    }
 
     public String[] getAllSignals() {
         return ALL_SIGNALS.clone();

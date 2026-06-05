@@ -4,7 +4,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Traffic light controller using conflict matrix.
+ * Traffic light controller using the conflict matrix.
  *
  * States:
  * - normal lights: 0 = red, 1 = orange, 2 = green
@@ -44,9 +44,16 @@ public class TrafficLightService {
     private final Map<String, Long> triggeredTimestamps = new ConcurrentHashMap<>();
 
     public TrafficLightService() {
-        this.matrix = new ConflictMatrix();
-        for (String signal : matrix.getAllSignals()) {
-            states.put(signal, 0);
+        this.conflictHandler = new ConflictHandler();
+        this.trainHandler = new TrainHandler();
+        this.busHandler = new BusHandler();
+        this.bicycleHandler = new BicycleHandler();
+        this.pedestrianHandler = new PedestrianHandler();
+        this.carHandler = new CarHandler();
+        this.allSignals = conflictHandler.getAllSignals();
+
+        for (String signal : allSignals) {
+            states.put(signal, RED);
             stateChangeTime.put(signal, 0L);
             greenSince.put(signal, 0L);
             entityPresence.put(signal, false);
@@ -54,8 +61,12 @@ public class TrafficLightService {
         }
     }
 
-    public synchronized Map<String, Integer> processUpdate(List<LightUpdate> updates, long currentTimestamp) {
-        return processUpdate(updates, currentTimestamp, 0L);
+    public void registerTrainArrival(long trainArrivalTimestamp) {
+        trainHandler.registerTrainArrival(trainArrivalTimestamp);
+    }
+
+    public void clearTrainWindow() {
+        trainHandler.clearTrainWindow();
     }
 
     public synchronized Map<String, Integer> processUpdate(List<LightUpdate> updates, long currentTimestamp, long trainArrivalTimestamp) {
@@ -69,12 +80,11 @@ public class TrafficLightService {
         return getAllStates();
     }
 
-    private void applyLightUpdates(List<LightUpdate> updates) {
+    private void applyUpdates(List<LightUpdate> updates) {
         for (LightUpdate update : updates) {
-            if (states.containsKey(update.id)) {
-                entityPresence.put(update.id, update.hasEntity);
-                triggeredTimestamps.put(update.id, update.triggeredTimestamp);
-            }
+            if (!states.containsKey(update.id)) continue;
+            entityPresence.put(update.id, update.hasEntity);
+            triggeredTimestamps.put(update.id, update.triggeredTimestamp);
         }
     }
 
@@ -143,12 +153,13 @@ public class TrafficLightService {
                 continue;
             }
 
-            long gSince = greenSince.getOrDefault(signal, 0L);
-            boolean hasEntity = entityPresence.getOrDefault(signal, false);
+            int state = stateOf(signal);
+            if (!isGreen(signal, state)) continue;
 
-            if ((currentTimestamp - gSince) >= maxGreenMs) {
+            long greenDuration = currentTimestamp - greenSince.getOrDefault(signal, 0L);
+            if (greenDuration >= maxGreenMsFor(signal)) {
                 System.out.println("[Controller] " + signal + " MAX GREEN reached, forcing orange");
-                setState(signal, 1, currentTimestamp);
+                setState(signal, ORANGE, currentTimestamp);
                 continue;
             }
 
@@ -207,24 +218,92 @@ public class TrafficLightService {
 
     private void activateWaitingSignals(long currentTimestamp, boolean trainActive) {
         Set<String> occupied = getOccupiedSignals();
-        List<String> waiting = new ArrayList<>();
+        reserveTriggerDelayBlocks(occupied, currentTimestamp);
 
-        for (String signal : matrix.getAllSignals()) {
-            if (TRAIN_SIGNAL_ID.equals(signal)) continue;
+        List<ConflictHandler.WaitingRequest> waiting = collectWaitingRequests(currentTimestamp);
+        waiting.sort(conflictHandler.waitingComparator());
 
-            boolean hasEntity = entityPresence.getOrDefault(signal, false);
-            int state = states.getOrDefault(signal, 0);
-            if (hasEntity && state == 0) {
-                if (trainActive && matrix.hasConflict(TRAIN_SIGNAL_ID, signal)) {
-                    continue;
-                }
+        for (ConflictHandler.WaitingRequest request : waiting) {
+            String signal = request.signalId();
+            long waitTime = currentTimestamp - triggeredTimestamps.getOrDefault(signal, 0L);
+            boolean isStarving = waitTime >= MAX_RED_MS;
 
-                long changedAt = stateChangeTime.getOrDefault(signal, 0L);
-                if ((currentTimestamp - changedAt) >= minRedMs) {
-                    waiting.add(signal);
-                }
+            if (isBlockedByTrain(signal, currentTimestamp)) continue;
+
+            if (isStarving) {
+                forceConflictingGreenTrafficOrange(signal, currentTimestamp);
+                System.out.println("[Controller] " + signal + " STARVING after " + TimeFormat.duration(waitTime));
+            }
+
+            if (isStarving || conflictHandler.canTurnGreen(signal, occupied)) {
+                turnGreen(signal, occupied, currentTimestamp);
+                turnLinkedPedestrianGreenIfPossible(signal, occupied, currentTimestamp);
             }
         }
+    }
+
+    private List<ConflictHandler.WaitingRequest> collectWaitingRequests(long currentTimestamp) {
+        List<ConflictHandler.WaitingRequest> waiting = new ArrayList<>();
+        Set<String> waitingSignals = new HashSet<>();
+
+        for (String signal : allSignals) {
+            if (!entityPresence.getOrDefault(signal, false)) continue;
+            if (stateOf(signal) != RED) continue;
+            addWaitingRequest(waiting, waitingSignals, signal, currentTimestamp);
+        }
+
+        return waiting;
+    }
+
+    private void addWaitingRequest(
+            List<ConflictHandler.WaitingRequest> waiting,
+            Set<String> waitingSignals,
+            String signal,
+            long currentTimestamp
+    ) {
+        if (waitingSignals.contains(signal)) return;
+        if (hasSatisfiedMinRed(signal, currentTimestamp)) return;
+
+        long triggered = triggeredTimestamps.getOrDefault(signal, currentTimestamp);
+        long waitTime = currentTimestamp - triggered;
+        if (!hasSatisfiedTriggerDelay(signal, waitTime)) return;
+
+        waitingSignals.add(signal);
+        ConflictHandler.Priority priority = waitTime >= MAX_RED_MS
+                ? ConflictHandler.Priority.TRAIN
+                : conflictHandler.priorityForSignal(signal);
+        waiting.add(new ConflictHandler.WaitingRequest(signal, priority, triggered));
+    }
+
+    private void turnGreen(String signal, Set<String> occupied, long currentTimestamp) {
+        setState(signal, greenStateFor(signal), currentTimestamp);
+        greenSince.put(signal, currentTimestamp);
+        occupied.add(signal);
+    }
+
+    private void turnLinkedPedestrianGreenIfPossible(String sourceSignal, Set<String> occupied, long currentTimestamp) {
+        String linkedSignal = PEDESTRIAN_SEQUENCE_PAIRS.get(sourceSignal);
+        if (linkedSignal == null) return;
+        if (stateOf(linkedSignal) != RED) return;
+        if (hasSatisfiedMinRed(linkedSignal, currentTimestamp)) return;
+        if (isBlockedByTrain(linkedSignal, currentTimestamp)) return;
+        if (!conflictHandler.canTurnGreen(linkedSignal, occupied)) return;
+
+        turnGreen(linkedSignal, occupied, currentTimestamp);
+    }
+
+    private void reserveTriggerDelayBlocks(Set<String> occupied, long currentTimestamp) {
+        for (String signal : allSignals) {
+            if (!isWaitingForTriggerDelay(signal, currentTimestamp)) continue;
+            occupied.add(signal);
+            forceConflictingGreenTrafficOrange(signal, currentTimestamp);
+        }
+    }
+
+    private boolean isWaitingForTriggerDelay(String signal, long currentTimestamp) {
+        if (!entityPresence.getOrDefault(signal, false)) return false;
+        if (stateOf(signal) != RED) return false;
+        if (hasSatisfiedMinRed(signal, currentTimestamp)) return false;
 
         waiting.sort(
                 Comparator
@@ -244,12 +323,33 @@ public class TrafficLightService {
                 occupied.add(signal);
             }
         }
+        return occupied;
+    }
+
+    private void forceTrainConflictingTrafficOrange(long currentTimestamp) {
+        if (!trainHandler.isTrafficBlocked(currentTimestamp)) return;
+
+        for (String signal : allSignals) {
+            if (TRAIN_BARRIER_SIGNAL.equals(signal)) continue;
+            if (conflictHandler.hasConflict(TRAIN_BARRIER_SIGNAL, signal)
+                    && isGreen(signal, stateOf(signal))) {
+                setState(signal, ORANGE, currentTimestamp);
+            }
+        }
+    }
+
+    private void forceConflictingGreenTrafficOrange(String protectedSignal, long currentTimestamp) {
+        for (String signal : allSignals) {
+            if (protectedSignal.equals(signal)) continue;
+            if (TRAIN_BARRIER_SIGNAL.equals(signal)) continue;
+            if (conflictHandler.hasConflict(protectedSignal, signal)
+                    && isGreen(signal, stateOf(signal))) {
+                setState(signal, ORANGE, currentTimestamp);
+            }
+        }
     }
 
     private void setState(String signal, int state, long timestamp) {
-        if (states.getOrDefault(signal, 0) == state) {
-            return;
-        }
         states.put(signal, state);
         stateChangeTime.put(signal, timestamp);
         String name = switch (state) {
